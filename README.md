@@ -1,10 +1,48 @@
 # uServer
 
-A complete web applications hosting server stack based on Docker micro-service containers.
+A docker-based web-hosting server stack based on micro-service containers.
 
 IMPORTANT: Work in progress!
 
-## Setup steps
+## Current list of services
+
+In order of build process.
+
+
+* [userver-web](https://github.com/ferdn4ndo/userver-web): the HTTP and HTTPS core, as well as general health-check system. Services contained:
+    * `userver-nginx`-proxy: based on [jwilder/nginx-proxy
+](https://github.com/nginx-proxy/nginx-proxy) to serve as the reverse-proxy for the hosted domains;
+    * `userver-letsencrypt`: based on [letsencrypt-nginx-proxy-companion](https://github.com/nginx-proxy/docker-letsencrypt-nginx-proxy-companion) handling the certificates and ensuring connections are made using HTTPS (SSL support and auto-renewal);
+    * `userver-monitor`: based on [netdata](https://github.com/netdata/netdata) to act as the general health monitor;
+
+
+* [userver-datamgr](https://github.com/ferdn4ndo/userver-datamgr): Data management microservices stack for persistent and ephemeral data, periodically backups and a client UI. Services contained:
+    * `userver-postgres`: based on [PostgreSQL](https://hub.docker.com/_/postgres) for persistent data;
+    * `userver-redis`: based on [Redis](https://hub.docker.com/_/redis) for non-persistent (ephemeral) data;
+    * `userver-adminer`: based on [Adminer](https://hub.docker.com/_/adminer/) to serve as a DB UI interface;
+    * `userver-databackup`: a custom implementation of [postgresql-backup-s3](https://github.com/itbm/postgresql-backup-s3) to perform periodic backups of the DB and act as a restoration tool when needed; 
+
+
+* [userver-mailer](https://github.com/ferdn4ndo/userver-mailer): a mail microservice stack containing SMTP, IMAP and POP servers with periodically backup and a webmail client. Services contained:
+    * `userver-mail`: based on [docker-mailserver](https://github.com/tomav/docker-mailserver) containing the SMTP, IMAP and POP servers;
+    * `userver-mailbackup`: based on [tiberiuc/backup-service](https://github.com/tiberiuc/docker-backup-service) to perform periodically compressed backups of the mail accounts and upload them to a S3 bucket;
+    * `userver-webmail`: based on [rainloop-webmail](https://github.com/RainLoop/rainloop-webmail) to serve as the webmail client interface.
+
+
+* [userver-auth](https://github.com/ferdn4ndo/userver-auth): a custom single-container service based on [Flask](https://github.com/pallets/flask) to serve as the authentication provider using JWT among the hosted platforms.
+
+
+* [userver-filemgr](https://github.com/ferdn4ndo/userver-filemgr): a custom single-container service based on Django and django-rest-framework to serve as the file management system with AWS S3 integration
+
+
+## Setup steps (local deploy)
+
+In order to run the stack locally, simply copy the environment template file `.env.template` into `.env` and edit it accordingly.
+
+Then run `./run.sh` and wait until `=========  SETUP FINISHED! =========` appears.
+
+
+## Setup steps (AWS EC2 deploy)
 
 ### Create the EC2 instance
 
@@ -105,15 +143,27 @@ Then clone this repository:
 git clone https://github.com/ferdn4ndo/userver.git
 ```
 
-### Run the setup
+Copy the environment template file `.env.template` into `.env` and edit it accordingly.
+
+### Run
 
 Navigate through the root project folder by using `cd userver` and run:
  
 ```
-chmod +x ./setup.sh && ./setup.sh
+chmod +x ./run.sh && ./run.sh
 ```
 
 Take a look at it before. It's always a good practice.
 
 
+## Testing
 
+Under development (see `tests/README.md`) as the proprietary services already contains its testing suit. However, a more robust testing approach reproducing the same environment as an EC2 instance locally to run all the services together is a great achievement.
+
+
+## Contributors
+
+[ferdn4ndo](https://github.com/ferdn4ndo)
+
+
+Any help is appreciated! Feel free to review / open an issue / fork / make a PR.
