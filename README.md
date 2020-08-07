@@ -57,7 +57,7 @@ Ensure that your security group attends the following inbound rule requisites:
 | HTTP   | TCP      | 80    | 0.0.0.0/0 ::/0 | Nginx reverse proxy non-secured traffic |
 | HTTPS  | TCP      | 443   | 0.0.0.0/0 ::/0 | Nginx reverse proxy secured traffic     |
 | POP3   | TCP      | 110   | 0.0.0.0/0 ::/0 | POP3 mail exchange non-secured traffic  |
-| IMAP   |          | 143   | 0.0.0.0/0 ::/0 |                                         |
+| IMAP   | TCP      | 143   | 0.0.0.0/0 ::/0 |                                         |
 | SMTPS  | TCP      | 465   | 0.0.0.0/0 ::/0 |                                         |
 | SMTP   | TCP      | 25    | 0.0.0.0/0 ::/0 | MX SMTP non-secured (main) traffic      |
 | Custom | TCP      | 587   | 0.0.0.0/0 ::/0 | Mail sending through MUAs               |
