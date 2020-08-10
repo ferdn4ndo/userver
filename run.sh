@@ -28,6 +28,7 @@ function clone_repo {
     echo "Directory '$1' already exists, updating..."
     cd $1 || exit
     git pull origin master
+    cd ..
     return
   fi
 
@@ -109,7 +110,7 @@ set +o allexport
 
 NETWORK_NAME=nginx-proxy
 if [ -z $(docker network ls --filter name=^${NETWORK_NAME}$ --format="{{ .Name }}") ] ; then
-     docker network create ${NETWORK_NAME} ;
+  docker network create ${NETWORK_NAME} ;
 fi
 
 ##########################################################################
