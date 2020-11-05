@@ -51,7 +51,7 @@ function prepare_virutal_host {
   sed -i -e "s/VIRTUAL_HOST=/VIRTUAL_HOST=${subdomain}.${USERVER_VIRTUAL_HOST}/g" "$file"
   if [ "$USERVER_MODE" == "prod" ]; then
     sed -i -e "s/LETSENCRYPT_HOST=/LETSENCRYPT_HOST=${subdomain}.${USERVER_VIRTUAL_HOST}/g" "$file"
-    sed -i -e "s/LETSENCRYPT_EMAIL=/LETSENCRYPT_EMAIL=${subdomain}.${USERVER_VIRTUAL_HOST}/g" "$file"
+    sed -i -e "s/LETSENCRYPT_EMAIL=/LETSENCRYPT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}/g" "$file"
   fi
 }
 
