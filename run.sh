@@ -126,14 +126,27 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
   clone_repo userver-web
 
   envs=(
+    "s/SERVER_NAME=/SERVER_NAME=${USERVER_VIRTUAL_HOST} adminer.${USERVER_VIRTUAL_HOST} auth.${USERVER_VIRTUAL_HOST} filemgr.${USERVER_VIRTUAL_HOST} mail.${USERVER_VIRTUAL_HOST} webmail.${USERVER_VIRTUAL_HOST} whoami.${USERVER_VIRTUAL_HOST}/g"
+    #"s/AUTO_LETS_ENCRYPT=no/AUTO_LETS_ENCRYPT=no/g"
+    #"s/GENERATE_SELF_SIGNED_SSL=no/GENERATE_SELF_SIGNED_SSL=no/g"
+    #"s/HTTP2=yes/HTTP2=yes/g"
+    #"s/REDIRECT_HTTP_TO_HTTPS=no/REDIRECT_HTTP_TO_HTTPS=no/g"
+    #"s/DISABLE_DEFAULT_SERVER=yes/DISABLE_DEFAULT_SERVER=yes/g"
+    #"s/ALLOWED_METHODS=GET|POST|PATCH|DELETE|HEAD/ALLOWED_METHODS=GET|POST|PATCH|DELETE|HEAD/g"
+    #"s/SERVE_FILES=no/SERVE_FILES=no/g"
+  )
+  cp userver-web/nginx-firewall/.env.template userver-web/nginx-firewall/.env
+  sed_replace_occurences userver-web/nginx-firewall/.env "${envs[@]}"
+
+  envs=(
     "s/DEFAULT_EMAIL=/DEFAULT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}/g"
     "s/NGINX_PROXY_CONTAINER=/NGINX_PROXY_CONTAINER=userver-nginx-proxy/g"
   )
   cp userver-web/letsencrypt/.env.template userver-web/letsencrypt/.env
   sed_replace_occurences userver-web/letsencrypt/.env "${envs[@]}"
 
-  cp userver-web/monitor/.env.template userver-web/monitor/.env
-  prepare_virutal_host userver-web/monitor/.env "monitor"
+  cp userver-web/whoami/.env.template userver-web/whoami/.env
+  prepare_virutal_host userver-web/whoami/.env "whoami"
 fi
 
 start_service userver-web "$build"
