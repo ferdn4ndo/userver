@@ -125,7 +125,7 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
   stop_and_remove_container userver-web
   clone_repo userver-web
 
-  hosts="${USERVER_VIRTUAL_HOST} adminer.${USERVER_VIRTUAL_HOST} auth.${USERVER_VIRTUAL_HOST} filemgr.${USERVER_VIRTUAL_HOST} mail.${USERVER_VIRTUAL_HOST} webmail.${USERVER_VIRTUAL_HOST} whoami.${USERVER_VIRTUAL_HOST}/g"
+  hosts="${USERVER_VIRTUAL_HOST} adminer.${USERVER_VIRTUAL_HOST} auth.${USERVER_VIRTUAL_HOST} filemgr.${USERVER_VIRTUAL_HOST} mail.${USERVER_VIRTUAL_HOST} webmail.${USERVER_VIRTUAL_HOST} whoami.${USERVER_VIRTUAL_HOST}"
 
   if [ "$USERVER_MODE" == "prod" ]; then
     envs=(
