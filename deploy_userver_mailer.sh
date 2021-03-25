@@ -56,6 +56,24 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
   cp userver-mailer/webmail/.env.template userver-mailer/webmail/.env
   prepare_virutal_host userver-mailer/webmail/.env "${USERVER_WEBMAIL_HOSTNAME}"
   sed_replace_occurences userver-mailer/webmail/.env "${envs[@]}"
+
+  docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create database ${USERVER_POSTFIXADMIN_DB_NAME};\""
+  docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create user ${USERVER_POSTFIXADMIN_DB_USER} with encrypted password '${USERVER_POSTFIXADMIN_DB_PASS}';\""
+  docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"grant all privileges on database ${USERVER_POSTFIXADMIN_DB_NAME} to ${USERVER_POSTFIXADMIN_DB_USER};\""
+
+  envs=(
+    "s/POSTFIXADMIN_DB_TYPE=pgsql/POSTFIXADMIN_DB_TYPE=${USERVER_POSTFIXADMIN_DB_TYPE}/g"
+    "s/POSTFIXADMIN_DB_HOST=db/POSTFIXADMIN_DB_HOST=${USERVER_POSTFIXADMIN_DB_HOST}/g"
+    "s/POSTFIXADMIN_DB_NAME=postfixadmin/POSTFIXADMIN_DB_NAME=${USERVER_POSTFIXADMIN_DB_NAME}/g"
+    "s/POSTFIXADMIN_DB_USER=postfixadmin/POSTFIXADMIN_DB_USER=${USERVER_POSTFIXADMIN_DB_USER}/g"
+    "s/POSTFIXADMIN_DB_PASSWORD=example/POSTFIXADMIN_DB_PASSWORD=${USERVER_POSTFIXADMIN_DB_PASS}/g"
+    "s/POSTFIXADMIN_SETUP_PASSWORD=topsecret99/POSTFIXADMIN_SETUP_PASSWORD=${USERVER_POSTFIXADMIN_SETUP_PASS}/g"
+    "s/POSTFIXADMIN_SMTP_SERVER=localhost/POSTFIXADMIN_SMTP_SERVER=${USERVER_POSTFIXADMIN_SMTP_HOST}/g"
+    "s/POSTFIXADMIN_SMTP_PORT=25/POSTFIXADMIN_SMTP_PORT=${USERVER_POSTFIXADMIN_SMTP_PORT}/g"
+  )
+  cp userver-mailer/postfixadmin/.env.template userver-mailer/postfixadmin/.env
+  prepare_virutal_host userver-mailer/postfixadmin/.env "${USERVER_POSTFIXADMIN_HOSTNAME}"
+  sed_replace_occurences userver-mailer/postfixadmin/.env "${envs[@]}"
 fi
 
 echo "Cleaning port 25"
