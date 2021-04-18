@@ -28,7 +28,7 @@ function clone_repo {
   if [ -d $1 ]; then
     echo "Directory '$1' already exists, updating..."
     cd $1 || exit
-    git pull origin master
+    git pull origin master --no-rebase
     cd ..
     return
   fi
