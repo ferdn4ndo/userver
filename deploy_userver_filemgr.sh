@@ -4,7 +4,7 @@
 . ./functions.sh --source-only
 
 # Skip functionality
-if [ "$USERVER_SKIP_DEPLOY_FILEMGR" == "true" ]; then
+if [ "$USERVER_SKIP_DEPLOY_FILEMGR" = "true" ]; then
     echo "Deployment of uServer-FileMgr was skipped due to env 'USERVER_SKIP_DEPLOY_FILEMGR' set to true"
     return 0
 fi

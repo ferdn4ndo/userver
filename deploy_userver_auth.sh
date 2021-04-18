@@ -4,7 +4,7 @@
 . ./functions.sh --source-only
 
 # Skip functionality
-if [ "$USERVER_SKIP_DEPLOY_AUTH" == "true" ]; then
+if [ "$USERVER_SKIP_DEPLOY_AUTH" = "true" ]; then
     echo "Deployment of uServer-Auth was skipped due to env 'USERVER_SKIP_DEPLOY_AUTH' set to true"
     return 0
 fi

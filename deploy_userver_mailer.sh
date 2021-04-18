@@ -4,7 +4,7 @@
 . ./functions.sh --source-only
 
 # Skip functionality
-if [ "$USERVER_SKIP_DEPLOY_MAILER" == "true" ]; then
+if [ "$USERVER_SKIP_DEPLOY_MAILER" = "true" ]; then
     echo "Deployment of uServer-Mailer was skipped due to env 'USERVER_SKIP_DEPLOY_MAILER' set to true"
     return 0
 fi
@@ -12,7 +12,7 @@ fi
 print_title "Deploying userver-mailer..."
 
 build=
-if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
+if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
   build=1
   stop_and_remove_container userver-mailer
   clone_repo userver-mailer
