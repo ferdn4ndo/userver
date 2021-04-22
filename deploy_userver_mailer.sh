@@ -3,16 +3,16 @@
 # Common functions
 . ./functions.sh --source-only
 
-# Skip functionality
-if [ "$USERVER_SKIP_DEPLOY_MAILER" == "true" ]; then
-    echo "Deployment of uServer-Mailer was skipped due to env 'USERVER_SKIP_DEPLOY_MAILER' set to true"
-    return 0
-fi
-
 print_title "Deploying userver-mailer..."
 
+# Skip functionality
+if [ "$USERVER_SKIP_DEPLOY_MAILER" = "true" ]; then
+    echo "Deployment of uServer-Mailer was skipped due to env 'USERVER_SKIP_DEPLOY_MAILER' set to true"
+    exit 0
+fi
+
 build=
-if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
+if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
   build=1
   stop_and_remove_container userver-mailer
   clone_repo userver-mailer
@@ -62,13 +62,13 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
   docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"grant all privileges on database ${USERVER_POSTFIXADMIN_DB_NAME} to ${USERVER_POSTFIXADMIN_DB_USER};\""
 
   envs=(
-    "s/POSTFIXADMIN_DB_TYPE=pgsql/POSTFIXADMIN_DB_TYPE=${USERVER_POSTFIXADMIN_DB_TYPE}/g"
-    "s/POSTFIXADMIN_DB_HOST=db/POSTFIXADMIN_DB_HOST=${USERVER_POSTFIXADMIN_DB_HOST}/g"
-    "s/POSTFIXADMIN_DB_NAME=postfixadmin/POSTFIXADMIN_DB_NAME=${USERVER_POSTFIXADMIN_DB_NAME}/g"
-    "s/POSTFIXADMIN_DB_USER=postfixadmin/POSTFIXADMIN_DB_USER=${USERVER_POSTFIXADMIN_DB_USER}/g"
-    "s/POSTFIXADMIN_DB_PASSWORD=example/POSTFIXADMIN_DB_PASSWORD=${USERVER_POSTFIXADMIN_DB_PASS}/g"
-    "s/POSTFIXADMIN_SETUP_PASSWORD=topsecret99/POSTFIXADMIN_SETUP_PASSWORD=${USERVER_POSTFIXADMIN_SETUP_PASS}/g"
-    "s/POSTFIXADMIN_SMTP_SERVER=localhost/POSTFIXADMIN_SMTP_SERVER=${USERVER_POSTFIXADMIN_SMTP_HOST}/g"
+    "s/POSTFIXADMIN_DB_TYPE=/POSTFIXADMIN_DB_TYPE=${USERVER_POSTFIXADMIN_DB_TYPE}/g"
+    "s/POSTFIXADMIN_DB_HOST=/POSTFIXADMIN_DB_HOST=${USERVER_POSTFIXADMIN_DB_HOST}/g"
+    "s/POSTFIXADMIN_DB_NAME=/POSTFIXADMIN_DB_NAME=${USERVER_POSTFIXADMIN_DB_NAME}/g"
+    "s/POSTFIXADMIN_DB_USER=/POSTFIXADMIN_DB_USER=${USERVER_POSTFIXADMIN_DB_USER}/g"
+    "s/POSTFIXADMIN_DB_PASSWORD=/POSTFIXADMIN_DB_PASSWORD=${USERVER_POSTFIXADMIN_DB_PASS}/g"
+    "s/POSTFIXADMIN_SETUP_PASSWORD=/POSTFIXADMIN_SETUP_PASSWORD=${USERVER_POSTFIXADMIN_SETUP_PASS}/g"
+    "s/POSTFIXADMIN_SMTP_SERVER=/POSTFIXADMIN_SMTP_SERVER=${USERVER_POSTFIXADMIN_SMTP_HOST}/g"
     "s/POSTFIXADMIN_SMTP_PORT=25/POSTFIXADMIN_SMTP_PORT=${USERVER_POSTFIXADMIN_SMTP_PORT}/g"
   )
   cp userver-mailer/postfixadmin/.env.template userver-mailer/postfixadmin/.env

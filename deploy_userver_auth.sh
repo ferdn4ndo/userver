@@ -3,13 +3,13 @@
 # Common functions
 . ./functions.sh --source-only
 
-# Skip functionality
-if [ "$USERVER_SKIP_DEPLOY_AUTH" == "true" ]; then
-    echo "Deployment of uServer-Auth was skipped due to env 'USERVER_SKIP_DEPLOY_AUTH' set to true"
-    return 0
-fi
-
 print_title "Deploying userver-auth..."
+
+# Skip functionality
+if [ "$USERVER_SKIP_DEPLOY_AUTH" = "true" ]; then
+    echo "Deployment of uServer-Auth was skipped due to env 'USERVER_SKIP_DEPLOY_AUTH' set to true"
+    exit 0
+fi
 
 if [ -d userver-auth ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-auth exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
@@ -21,7 +21,7 @@ stop_and_remove_container userver-auth
 clone_repo userver-auth
 
 envs=(
-    "s/POSTGRES_HOST=/POSTGRES_HOST=userver-postgres/g"
+    "s/POSTGRES_HOST=/POSTGRES_HOST=${USERVER_AUTH_DB_HOST}/g"
     "s/POSTGRES_DB=/POSTGRES_DB=${USERVER_AUTH_DB}/g"
     "s/POSTGRES_DB_TEST=/POSTGRES_DB_TEST=${USERVER_AUTH_TEST_DB}/g"
     "s/POSTGRES_USER=/POSTGRES_USER=${USERVER_AUTH_USER}/g"
@@ -36,7 +36,7 @@ envs=(
     "s/POSTGRES_ROOT_PASS=/POSTGRES_ROOT_PASS=${USERVER_DB_PASSWORD}/g"
 )
 cp userver-auth/.env.template userver-auth/.env
-prepare_virutal_host userver-auth/.env "auth"
+prepare_virutal_host userver-auth/.env "${USERVER_AUTH_HOSTNAME}"
 sed_replace_occurences userver-auth/.env "${envs[@]}"
 
 start_service userver-auth 1

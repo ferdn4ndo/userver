@@ -3,16 +3,16 @@
 # Common functions
 . ./functions.sh --source-only
 
-# Skip functionality
-if [ "$USERVER_SKIP_DEPLOY_DATAMGR" == "true" ]; then
-    echo "Deployment of uServer-DataMgr was skipped due to env 'USERVER_SKIP_DEPLOY_DATAMGR' set to true"
-    return 0
-fi
-
 print_title "Deploying userver-datamgr..."
 
+# Skip functionality
+if [ "$USERVER_SKIP_DEPLOY_DATAMGR" = "true" ]; then
+    echo "Deployment of uServer-DataMgr was skipped due to env 'USERVER_SKIP_DEPLOY_DATAMGR' set to true"
+    exit 0
+fi
+
 build=
-if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
+if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     build=1
     stop_and_remove_container userver-datamgr
     clone_repo userver-datamgr
