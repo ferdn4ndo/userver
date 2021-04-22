@@ -3,13 +3,13 @@
 # Common functions
 . ./functions.sh --source-only
 
+print_title "Deploying userver-web..."
+
 # Skip functionality
 if [ "$USERVER_SKIP_DEPLOY_WEB" == "true" ]; then
     echo "Deployment of uServer-Web was skipped due to env 'USERVER_SKIP_DEPLOY_WEB' set to true"
     exit 0
 fi
-
-print_title "Deploying userver-web..."
 
 build=
 if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then

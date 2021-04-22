@@ -3,13 +3,13 @@
 # Common functions
 . ./functions.sh --source-only
 
+print_title "Deploying userver-datamgr..."
+
 # Skip functionality
 if [ "$USERVER_SKIP_DEPLOY_DATAMGR" = "true" ]; then
     echo "Deployment of uServer-DataMgr was skipped due to env 'USERVER_SKIP_DEPLOY_DATAMGR' set to true"
-    return 0
+    exit 0
 fi
-
-print_title "Deploying userver-datamgr..."
 
 build=
 if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then

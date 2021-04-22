@@ -3,13 +3,13 @@
 # Common functions
 . ./functions.sh --source-only
 
+print_title "Deploying userver-filemgr..."
+
 # Skip functionality
 if [ "$USERVER_SKIP_DEPLOY_FILEMGR" = "true" ]; then
     echo "Deployment of uServer-FileMgr was skipped due to env 'USERVER_SKIP_DEPLOY_FILEMGR' set to true"
-    return 0
+    exit 0
 fi
-
-print_title "Deploying userver-filemgr..."
 
 if [ -d userver-filemgr ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-filemgr exists and env USERVER_FORCE_BUILD is not set to true, skipping build"

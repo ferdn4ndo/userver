@@ -3,13 +3,13 @@
 # Common functions
 . ./functions.sh --source-only
 
+print_title "Deploying userver-auth..."
+
 # Skip functionality
 if [ "$USERVER_SKIP_DEPLOY_AUTH" = "true" ]; then
     echo "Deployment of uServer-Auth was skipped due to env 'USERVER_SKIP_DEPLOY_AUTH' set to true"
-    return 0
+    exit 0
 fi
-
-print_title "Deploying userver-auth..."
 
 if [ -d userver-auth ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-auth exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
