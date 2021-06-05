@@ -21,7 +21,7 @@ stop_and_remove_container userver-auth
 clone_repo userver-auth
 
 envs=(
-    "s/POSTGRES_HOST=/POSTGRES_HOST=userver-postgres/g"
+    "s/POSTGRES_HOST=/POSTGRES_HOST=${USERVER_AUTH_DB_HOST}/g"
     "s/POSTGRES_DB=/POSTGRES_DB=${USERVER_AUTH_DB}/g"
     "s/POSTGRES_DB_TEST=/POSTGRES_DB_TEST=${USERVER_AUTH_TEST_DB}/g"
     "s/POSTGRES_USER=/POSTGRES_USER=${USERVER_AUTH_USER}/g"
@@ -36,7 +36,7 @@ envs=(
     "s/POSTGRES_ROOT_PASS=/POSTGRES_ROOT_PASS=${USERVER_DB_PASSWORD}/g"
 )
 cp userver-auth/.env.template userver-auth/.env
-prepare_virutal_host userver-auth/.env "auth"
+prepare_virutal_host userver-auth/.env "${USERVER_AUTH_HOSTNAME}"
 sed_replace_occurences userver-auth/.env "${envs[@]}"
 
 start_service userver-auth 1
