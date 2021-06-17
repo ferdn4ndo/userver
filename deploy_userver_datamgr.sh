@@ -44,7 +44,7 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         "s/S3_REGION=<region>/S3_REGION=${USERVER_DB_BKP_S3_REGION}/g"
         "s/S3_BUCKET=<bucket>/S3_BUCKET=${USERVER_DB_BKP_S3_BUCKET}/g"
         "s/S3_ACCESS_KEY_ID=<key_id>/S3_ACCESS_KEY_ID=${USERVER_DB_BKP_S3_ID}/g"
-        "s/S3_SECRET_ACCESS_KEY=<access_key>/S3_SECRET_ACCESS_KEY=${USERVER_DB_BKP_S3_KEY}/g"
+        "s~S3_SECRET_ACCESS_KEY=<access_key>~S3_SECRET_ACCESS_KEY=${USERVER_DB_BKP_S3_KEY}~g"
         "s~S3_PREFIX=~S3_PREFIX=${USERVER_DB_BKP_S3_PREFIX}~g"
         #"s/S3_ENDPOINT=/S3_ENDPOINT=/g"
         #"s/S3_S3V4=no/S3_S3V4=no/g"

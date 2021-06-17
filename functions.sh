@@ -83,7 +83,7 @@ function sed_replace_occurences {
   for i in "${strings_arr[@]}"
   do
     :
-      sed -i -e "$i" "$file"
+      sed -i -e "$i" "$file" || echo "Failed to replace string ${i}"
   done
 }
 
