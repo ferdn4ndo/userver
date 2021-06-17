@@ -35,7 +35,8 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         "s/SCHEDULE=@every 6h/SCHEDULE=@every ${USERVER_DB_BKP_FREQUENCY}/g"
         "s/ENCRYPTION_PASSWORD=<password>/ENCRYPTION_PASSWORD=${USERVER_DB_BKP_ENCRYPTION_PASSWORD}/g"
         #"s/DELETE_OLDER_THAN=/DELETE_OLDER_THAN=/g"
-        #"s/TEMP_PATH=\/temp/TEMP_PATH=\/temp/g"
+        #"s~TEMP_PATH=/temp~TEMP_PATH=/temp~g"
+        #"s~LOGS_PATH=/logs~LOGS_PATH=/logs~g"
         #"s/XZ_COMPRESSION_LEVEL=6/XZ_COMPRESSION_LEVEL=6/g"
         "s/BACKUP_PREFIX=/BACKUP_PREFIX=postgres-dump-all/g"
         #"s/RUN_AT_STARTUP=1/RUN_AT_STARTUP=1/g"
@@ -52,8 +53,8 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     sed_replace_occurences userver-datamgr/backup/.env "${envs[@]}"
 
     envs=(
-    "s/POSTGRES_PASSWORD=/POSTGRES_PASSWORD=${USERVER_DB_PASSWORD}/g"
-    #"s/PGDATA=/var/lib/postgresql/data/pgdata/PGDATA=/var/lib/postgresql/data/pgdata/g"
+      "s/POSTGRES_PASSWORD=/POSTGRES_PASSWORD=${USERVER_DB_PASSWORD}/g"
+      #"s/PGDATA=/var/lib/postgresql/data/pgdata/PGDATA=/var/lib/postgresql/data/pgdata/g"
     )
     cp userver-datamgr/postgres/.env.template userver-datamgr/postgres/.env
     sed_replace_occurences userver-datamgr/postgres/.env "${envs[@]}"
