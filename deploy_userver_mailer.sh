@@ -18,16 +18,10 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
   clone_repo userver-mailer
 
   envs=(
-    #"s/RCLONE_CONFIG_BACKUP_TYPE=s3/RCLONE_CONFIG_BACKUP_TYPE=s3/g"
-    #"s/RCLONE_CONFIG_BACKUP_PROVIDER=aws/RCLONE_CONFIG_BACKUP_PROVIDER=aws/g"
-    "s/RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID=<your-key>/RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID=${USERVER_MAIL_BKP_S3_ID}/g"
-    "s/RCLONE_CONFIG_BACKUP_SECRET_ACCESS_KEY=<your-access-key>/RCLONE_CONFIG_BACKUP_SECRET_ACCESS_KEY=${USERVER_MAIL_BKP_S3_KEY}/g"
-    "s/RCLONE_CONFIG_BACKUP_REGION=<your-region>/RCLONE_CONFIG_BACKUP_REGION=${USERVER_MAIL_BKP_S3_REGION}/g"
-    #"s/RCLONE_CONFIG_BACKUP_ACL=bucket-owner-full-control/RCLONE_CONFIG_BACKUP_ACL=bucket-owner-full-control/g"
-    #"s/ROTATE_BACKUPS=-hourly=240 --daily=60 --weekly=16 --yearl=always/ROTATE_BACKUPS=-hourly=240 --daily=60 --weekly=16 --yearl=always/g"
-    "s~REMOTE_BACKUP_PATH=/<your-bucket>/<subfolder>~REMOTE_BACKUP_PATH=/${USERVER_MAIL_BKP_S3_BUCKET}/${USERVER_MAIL_BKP_S3_PREFIX}~g"
-    #"s/BACKUP_INTERVAL=0 * * * */BACKUP_INTERVAL=0 * * * */g"
-    #"s/SERVICES_BACKUP_LIST=/SERVICES_BACKUP_LIST=/g"
+    "s/ACCESS_KEY=/ACCESS_KEY=${USERVER_MAIL_BKP_S3_ID}/g"
+    "s/SECRET_KEY=/SECRET_KEY=${USERVER_MAIL_BKP_S3_KEY}/g"
+    "s~S3_PATH=s3://<BUCKET_NAME>/<BUCKET_SUBFOLDER>/~S3_PATH=s3://${USERVER_MAIL_BKP_S3_BUCKET}/${USERVER_MAIL_BKP_S3_PREFIX}/~g"
+    #"s/CRON_SCHEDULE=\"0 12 * * *\"/CRON_SCHEDULE=\"${USERVER_MAIL_BKP_CRON_SCHEDULE}\"/"
   )
   cp userver-mailer/backup/.env.template userver-mailer/backup/.env
   sed_replace_occurences userver-mailer/backup/.env "${envs[@]}"
