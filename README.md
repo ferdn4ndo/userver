@@ -2,7 +2,11 @@
 
 A docker-based web-hosting server stack based on micro-service containers.
 
-IMPORTANT: Work in progress!
+**IMPORTANT: Work in progress!**
+
+The following image shows all the components:
+
+![uServer Diagram](https://github.com/ferdn4ndo/userver/blob/master/docs/userver_main_diagram.png)
 
 ## Current list of services
 
