@@ -17,7 +17,15 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     stop_and_remove_container userver-web
     clone_repo userver-web
 
-    hosts="${USERVER_VIRTUAL_HOST} adminer.${USERVER_VIRTUAL_HOST} auth.${USERVER_VIRTUAL_HOST} filemgr.${USERVER_VIRTUAL_HOST} mail.${USERVER_VIRTUAL_HOST} postfix.${USERVER_VIRTUAL_HOST} webmail.${USERVER_VIRTUAL_HOST} whoami.${USERVER_VIRTUAL_HOST}"
+    hosts="${USERVER_VIRTUAL_HOST}"
+    hosts="${hosts} ${USERVER_DB_ADMINER_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    hosts="${hosts} ${USERVER_AUTH_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    hosts="${hosts} ${USERVER_FILEMGR_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    hosts="${hosts} ${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    hosts="${hosts} ${USERVER_MONITOR_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    hosts="${hosts} ${USERVER_POSTFIXADMIN_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    hosts="${hosts} ${USERVER_WEBMAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    hosts="${hosts} ${USERVER_WHOAMI_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
 
     if [ "$USERVER_MODE" == "prod" ]; then
     envs=(
@@ -59,8 +67,11 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     cp userver-web/letsencrypt/.env.template userver-web/letsencrypt/.env
     sed_replace_occurences userver-web/letsencrypt/.env "${envs[@]}"
 
+    cp userver-web/monitor/.env.template userver-web/monitor/.env
+    prepare_virutal_host userver-web/monitor/.env "${USERVER_MONITOR_HOSTNAME}"
+
     cp userver-web/whoami/.env.template userver-web/whoami/.env
-    prepare_virutal_host userver-web/whoami/.env "whoami"
+    prepare_virutal_host userver-web/whoami/.env "${USERVER_WHOAMI_HOSTNAME}"
 fi
 
 start_service userver-web "$build"
