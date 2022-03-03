@@ -3,10 +3,7 @@
 # Read environment variables
 echo "Reading environment variables..."
 export $(egrep -v '^#' .env | xargs)
-#set -o allexport
-#source .env
-#set +o allexport
-echo "Environment variables read. Startup mode: ${USERVER_MODE}"
+echo "Finished reading environment variables. Startup mode: ${USERVER_MODE}"
 
 # Common functions
 . ./functions.sh --source-only
@@ -25,6 +22,9 @@ fi
 
 # Deploy uServer-Web
 ./deploy_userver_web.sh
+
+# Deploy uServer-Logger
+./deploy_userver_logger.sh
 
 # Deploy uServer-DataMgr
 ./deploy_userver_datamgr.sh

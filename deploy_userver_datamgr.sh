@@ -22,8 +22,8 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         "s/BASIC_AUTH_PWD=/BASIC_AUTH_PWD=${USERVER_DB_ADMINER_BASIC_AUTH_PWD}/g"
     )
     cp userver-datamgr/adminer/.env.template userver-datamgr/adminer/.env
-    sed_replace_occurences userver-datamgr/adminer/.env "${envs[@]}"
-    prepare_virutal_host userver-datamgr/adminer/.env "${USERVER_DB_ADMINER_HOSTNAME}"
+    sed_replace_occurrences userver-datamgr/adminer/.env "${envs[@]}"
+    prepare_virtual_host userver-datamgr/adminer/.env "${USERVER_DB_ADMINER_HOSTNAME}"
 
     envs=(
         "s/POSTGRES_DATABASE=<db>/POSTGRES_DATABASE=/g"
@@ -50,14 +50,14 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         #"s/S3_S3V4=no/S3_S3V4=no/g"
     )
     cp userver-datamgr/backup/.env.template userver-datamgr/backup/.env
-    sed_replace_occurences userver-datamgr/backup/.env "${envs[@]}"
+    sed_replace_occurrences userver-datamgr/backup/.env "${envs[@]}"
 
     envs=(
       "s/POSTGRES_PASSWORD=/POSTGRES_PASSWORD=${USERVER_DB_PASSWORD}/g"
       #"s/PGDATA=/var/lib/postgresql/data/pgdata/PGDATA=/var/lib/postgresql/data/pgdata/g"
     )
     cp userver-datamgr/postgres/.env.template userver-datamgr/postgres/.env
-    sed_replace_occurences userver-datamgr/postgres/.env "${envs[@]}"
+    sed_replace_occurrences userver-datamgr/postgres/.env "${envs[@]}"
 fi
 
 start_service userver-datamgr "$build"

@@ -52,26 +52,26 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     fi
 
     cp userver-web/nginx-firewall/.env.template userver-web/nginx-firewall/.env
-    sed_replace_occurences userver-web/nginx-firewall/.env "${envs[@]}"
+    sed_replace_occurrences userver-web/nginx-firewall/.env "${envs[@]}"
 
     envs=(
-    "s/HTTPS_METHOD=redirect/HTTPS_METHOD=redirect/g"
+        "s/HTTPS_METHOD=redirect/HTTPS_METHOD=redirect/g"
     )
     cp userver-web/nginx-proxy/.env.template userver-web/nginx-proxy/.env
-    sed_replace_occurences userver-web/nginx-proxy/.env "${envs[@]}"
+    sed_replace_occurrences userver-web/nginx-proxy/.env "${envs[@]}"
 
     envs=(
-    "s/DEFAULT_EMAIL=/DEFAULT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}/g"
-    "s/NGINX_PROXY_CONTAINER=/NGINX_PROXY_CONTAINER=userver-nginx-proxy/g"
+        "s/DEFAULT_EMAIL=/DEFAULT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}/g"
+        "s/NGINX_PROXY_CONTAINER=/NGINX_PROXY_CONTAINER=userver-nginx-proxy/g"
     )
     cp userver-web/letsencrypt/.env.template userver-web/letsencrypt/.env
-    sed_replace_occurences userver-web/letsencrypt/.env "${envs[@]}"
+    sed_replace_occurrences userver-web/letsencrypt/.env "${envs[@]}"
 
     cp userver-web/monitor/.env.template userver-web/monitor/.env
-    prepare_virutal_host userver-web/monitor/.env "${USERVER_MONITOR_HOSTNAME}"
+    prepare_virtual_host userver-web/monitor/.env "${USERVER_MONITOR_HOSTNAME}"
 
     cp userver-web/whoami/.env.template userver-web/whoami/.env
-    prepare_virutal_host userver-web/whoami/.env "${USERVER_WHOAMI_HOSTNAME}"
+    prepare_virtual_host userver-web/whoami/.env "${USERVER_WHOAMI_HOSTNAME}"
 fi
 
 start_service userver-web "$build"

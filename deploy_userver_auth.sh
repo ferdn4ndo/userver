@@ -36,8 +36,8 @@ envs=(
     "s/POSTGRES_ROOT_PASS=/POSTGRES_ROOT_PASS=${USERVER_DB_PASSWORD}/g"
 )
 cp userver-auth/.env.template userver-auth/.env
-prepare_virutal_host userver-auth/.env "${USERVER_AUTH_HOSTNAME}"
-sed_replace_occurences userver-auth/.env "${envs[@]}"
+prepare_virtual_host userver-auth/.env "${USERVER_AUTH_HOSTNAME}"
+sed_replace_occurrences userver-auth/.env "${envs[@]}"
 
 start_service userver-auth 1
 

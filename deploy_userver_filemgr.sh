@@ -51,8 +51,8 @@ envs=(
     "s/USERVER_AUTH_SYSTEM_CREATION_TOKEN=/USERVER_AUTH_SYSTEM_CREATION_TOKEN=${USERVER_AUTH_SYSTEM_CREATION_TOKEN}/g"
 )
 cp userver-filemgr/.env.template userver-filemgr/.env
-prepare_virutal_host userver-filemgr/.env "${USERVER_FILEMGR_HOSTNAME}"
-sed_replace_occurences userver-filemgr/.env "${envs[@]}"
+prepare_virtual_host userver-filemgr/.env "${USERVER_FILEMGR_HOSTNAME}"
+sed_replace_occurrences userver-filemgr/.env "${envs[@]}"
 
 start_service userver-filemgr 1
 
