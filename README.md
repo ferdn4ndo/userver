@@ -154,11 +154,29 @@ Copy the environment template file `.env.template` into `.env` and edit it accor
 Navigate through the root project folder by using `cd userver` and run:
  
 ```
-chmod +x ./run.sh && ./run.sh
+./run.sh
 ```
 
 Take a look at it before. It's always a good practice.
 
+### Stop
+
+To stop all the running uServer services, run:
+ 
+```
+./stop.sh
+```
+
+### Remove
+
+If you want to start fresh or simply remove all the services files, images and data, run:
+
+```
+./remove.sh
+```
+
+**WARNING**: This will remove **ALL** the uServer containers and their data! Don't run this in production unless you're
+really sure about that.
 
 ## Testing
 
