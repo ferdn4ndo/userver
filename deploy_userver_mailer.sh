@@ -23,7 +23,7 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         "s~S3_PATH=s3://<BUCKET_NAME>/<BUCKET_SUBFOLDER>/~S3_PATH=s3://${USERVER_MAIL_BKP_S3_BUCKET}/${USERVER_MAIL_BKP_S3_PREFIX}/~g"
         #"s/CRON_SCHEDULE=\"0 12 * * *\"/CRON_SCHEDULE=\"${USERVER_MAIL_BKP_CRON_SCHEDULE}\"/"
     )
-    cp userver-mailer/backup/.env.template userver-mailer/backup/.env
+    copy_env_template_if_missing userver-mailer/backup/.env.template userver-mailer/backup/.env
     sed_replace_occurrences userver-mailer/backup/.env "${envs[@]}"
 
     envs=(
@@ -31,7 +31,7 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         "s/DOMAINNAME=<domain>/DOMAINNAME=${USERVER_VIRTUAL_HOST}/g"
         "s/OVERRIDE_HOSTNAME=<full_host>/OVERRIDE_HOSTNAME=${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}/g"
     )
-    cp userver-mailer/mail/.env.template userver-mailer/mail/.env
+    copy_env_template_if_missing userver-mailer/mail/.env.template userver-mailer/mail/.env
     prepare_virtual_host userver-mailer/mail/.env "${USERVER_MAIL_HOSTNAME}"
     sed_replace_occurrences userver-mailer/mail/.env "${envs[@]}"
 
@@ -53,7 +53,7 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         "s/ROUNDCUBEMAIL_DB_NAME=/ROUNDCUBEMAIL_DB_NAME=${USERVER_WEBMAIL_DB_NAME}/g"
         "s/ROUNDCUBEMAIL_DB_PASSWORD=/ROUNDCUBEMAIL_DB_PASSWORD=${USERVER_WEBMAIL_DB_PASS}/g"
     )
-    cp userver-mailer/webmail/.env.template userver-mailer/webmail/.env
+    copy_env_template_if_missing userver-mailer/webmail/.env.template userver-mailer/webmail/.env
     prepare_virtual_host userver-mailer/webmail/.env "${USERVER_WEBMAIL_HOSTNAME}"
     sed_replace_occurrences userver-mailer/webmail/.env "${envs[@]}"
 
@@ -71,7 +71,7 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         "s/POSTFIXADMIN_SMTP_SERVER=/POSTFIXADMIN_SMTP_SERVER=${USERVER_POSTFIXADMIN_SMTP_HOST}/g"
         "s/POSTFIXADMIN_SMTP_PORT=25/POSTFIXADMIN_SMTP_PORT=${USERVER_POSTFIXADMIN_SMTP_PORT}/g"
     )
-    cp userver-mailer/postfixadmin/.env.template userver-mailer/postfixadmin/.env
+    copy_env_template_if_missing userver-mailer/postfixadmin/.env.template userver-mailer/postfixadmin/.env
     prepare_virtual_host userver-mailer/postfixadmin/.env "${USERVER_POSTFIXADMIN_HOSTNAME}"
     sed_replace_occurrences userver-mailer/postfixadmin/.env "${envs[@]}"
 fi

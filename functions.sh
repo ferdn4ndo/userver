@@ -19,7 +19,7 @@ function stop_and_remove_container {
             container_id="${cid}"
             break
         fi
-    done < <(docker ps -aq --format '{{.ID}} {{.Names}}')
+    done < <(docker ps -a --format '{{.ID}} {{.Names}}')
 
     if [ -z "${container_id}" ]; then
         echo "Container '$1' not found, skipping stop&remove"
@@ -124,11 +124,15 @@ function wait_for_postgresql_container {
     return 1
 }
 
-# Requires PostgreSQL 15+ (CREATE DATABASE ... IF NOT EXISTS). Idempotent mailer/datamgr helpers.
+# Idempotent mailer helpers (PostgreSQL 12+; avoids CREATE DATABASE name IF NOT EXISTS, which is invalid syntax).
 function ensure_postgres_database_if_not_exists {
     local cname="$1"
     local db="$2"
-    docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -v ON_ERROR_STOP=1 -c \"CREATE DATABASE ${db} IF NOT EXISTS;\""
+    local exists
+    exists="$(docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -qtAc \"SELECT 1 FROM pg_database WHERE datname='${db}'\"")"
+    if [ "${exists}" != "1" ]; then
+        docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -v ON_ERROR_STOP=1 -c \"CREATE DATABASE ${db};\""
+    fi
 }
 
 function ensure_postgres_role_if_not_exists {
@@ -141,6 +145,15 @@ function ensure_postgres_role_if_not_exists {
     exists="$(docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -qtAc \"SELECT 1 FROM pg_roles WHERE rolname='${role}'\"")"
     if [ "${exists}" != "1" ]; then
         docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -v ON_ERROR_STOP=1 -c \"CREATE USER ${role} WITH ENCRYPTED PASSWORD '${pass_esc}';\""
+    fi
+}
+
+# Copy .env.template → .env only when .env is absent so manual fixes survive ./run.sh (FORCE_BUILD re-ran cp before).
+function copy_env_template_if_missing {
+    local tmpl="$1"
+    local dest="$2"
+    if [ ! -f "${dest}" ]; then
+        cp "${tmpl}" "${dest}"
     fi
 }
 
