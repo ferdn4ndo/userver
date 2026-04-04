@@ -12,7 +12,7 @@ Architecture overview: [`docs/userver_main_diagram.drawio`](docs/userver_main_di
 2. **[userver-logger](https://github.com/ferdn4ndo/userver-logger)** — Loki / Grafana / Promtail (or equivalent) for logs and metrics.
 3. **[userver-datamgr](https://github.com/ferdn4ndo/userver-datamgr)** — PostgreSQL, Redis, Adminer, DB backups.
 4. **[userver-eventmgr](https://github.com/ferdn4ndo/userver-eventmgr)** — **Mosquitto (MQTT)** and **RabbitMQ** on the shared `nginx-proxy` network (cloned into `userver-eventmgr/`).
-5. **[userver-mailer](https://github.com/ferdn4ndo/userver-mailer)** — SMTP/IMAP/POP, backups, webmail.
+5. **[userver-mailer](https://github.com/ferdn4ndo/userver-mailer)** — SMTP/IMAP/POP, backups, webmail. PostfixAdmin **`custom-entrypoint.sh`** / **`setup.sh`** live in that repo under **`postfixadmin/`**; this orchestration repo keeps the same files under **`patches/userver-mailer/postfixadmin/`** only as a fallback for old clones missing them.
 6. **[userver-auth](https://github.com/ferdn4ndo/userver-auth)** — Flask JWT auth API (cloned into `userver-auth/`).
 7. **[userver-filemgr](https://github.com/ferdn4ndo/userver-filemgr)** — Django REST file manager with S3 integration (cloned into `userver-filemgr/`).
 

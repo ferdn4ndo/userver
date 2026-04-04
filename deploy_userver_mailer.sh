@@ -3,6 +3,8 @@
 # Common functions
 . ./functions.sh --source-only
 
+ORCH_ROOT="$(cd "$(dirname "$0")" && pwd)"
+
 print_title "Deploying userver-mailer..."
 
 # Skip functionality
@@ -16,6 +18,14 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     build=1
     stop_and_remove_container userver-mailer
     clone_repo userver-mailer
+
+    # Fallback if clone predates userver-mailer main (postfixadmin scripts live in that repo now).
+    if [ ! -f userver-mailer/postfixadmin/setup.sh ] && [ -f "${ORCH_ROOT}/patches/userver-mailer/postfixadmin/setup.sh" ]; then
+        cp "${ORCH_ROOT}/patches/userver-mailer/postfixadmin/custom-entrypoint.sh" \
+            "${ORCH_ROOT}/patches/userver-mailer/postfixadmin/setup.sh" \
+            userver-mailer/postfixadmin/
+        chmod +x userver-mailer/postfixadmin/custom-entrypoint.sh userver-mailer/postfixadmin/setup.sh
+    fi
 
     envs=(
         "s/ACCESS_KEY=/ACCESS_KEY=${USERVER_MAIL_BKP_S3_ID}/g"

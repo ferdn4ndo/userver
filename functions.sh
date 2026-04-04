@@ -185,14 +185,16 @@ function start_service {
 
     echo "${action} ${service}..."
     cd "${service}" || exit 1
+    local _compose_rc=0
     if docker compose version >/dev/null 2>&1; then
         # shellcheck disable=SC2086
-        docker compose up ${build_arg} -d
+        docker compose up ${build_arg} -d || _compose_rc=$?
     else
         # shellcheck disable=SC2086
-        docker-compose up ${build_arg} -d
+        docker-compose up ${build_arg} -d || _compose_rc=$?
     fi
-    cd ..
+    cd .. || return 1
+    return "${_compose_rc}"
 }
 
 function sed_replace_occurrences {

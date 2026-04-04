@@ -44,7 +44,7 @@ fi
 ./deploy_userver_auth.sh
 
 # Deploy uServer-FileMgr
-./deploy_userver_filemgr.sh
+./deploy_userver_filemgr.sh || exit 1
 
 echo "Cleaning up environment variables..."
 # shellcheck disable=SC2046

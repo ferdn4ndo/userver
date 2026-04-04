@@ -53,14 +53,20 @@ cp "${FM_ROOT}/.env.template" "${FM_ROOT}/.env"
 prepare_virtual_host "${FM_ROOT}/.env" "${USERVER_FILEMGR_HOSTNAME}"
 sed_replace_occurrences "${FM_ROOT}/.env" "${envs[@]}"
 
-start_service userver-filemgr 1
+if ! start_service userver-filemgr 1; then
+    echo "userver-filemgr: docker compose up failed." >&2
+    exit 1
+fi
 
 echo "Filemgr entrypoint runs migrations via setup.sh; waiting for healthcheck (qcluster starts after web is healthy)."
 for _ in $(seq 1 60); do
-    if docker inspect --format='{{.State.Health.Status}}' userver-filemgr 2>/dev/null | grep -q healthy; then
+    # Do not use grep -q healthy: it matches the substring inside "unhealthy".
+    _h="$(docker inspect --format='{{.State.Health.Status}}' userver-filemgr 2>/dev/null || true)"
+    if [ "${_h}" = "healthy" ]; then
         echo "userver-filemgr is healthy."
         exit 0
     fi
     sleep 2
 done
-echo "Warning: userver-filemgr did not report healthy within ~120s; check logs: docker logs userver-filemgr" >&2
+echo "userver-filemgr did not become healthy within ~120s (last status: ${_h:-unknown}). Check: docker logs userver-filemgr" >&2
+exit 1
