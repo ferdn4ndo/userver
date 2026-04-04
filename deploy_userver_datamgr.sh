@@ -18,8 +18,8 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     clone_repo userver-datamgr
 
     envs=(
-        "s/BASIC_AUTH_USER=/BASIC_AUTH_USER=${USERVER_DB_ADMINER_BASIC_AUTH_USER}/g"
-        "s/BASIC_AUTH_PWD=/BASIC_AUTH_PWD=${USERVER_DB_ADMINER_BASIC_AUTH_PWD}/g"
+        "s|^BASIC_AUTH_USER=.*|BASIC_AUTH_USER=${USERVER_DB_ADMINER_BASIC_AUTH_USER}|g"
+        "s|^BASIC_AUTH_PWD=.*|BASIC_AUTH_PWD=${USERVER_DB_ADMINER_BASIC_AUTH_PWD}|g"
     )
     cp userver-datamgr/adminer/.env.template userver-datamgr/adminer/.env
     sed_replace_occurrences userver-datamgr/adminer/.env "${envs[@]}"
@@ -38,14 +38,14 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         #"s~TEMP_PATH=/temp~TEMP_PATH=/temp~g"
         #"s~LOGS_PATH=/logs~LOGS_PATH=/logs~g"
         #"s/XZ_COMPRESSION_LEVEL=6/XZ_COMPRESSION_LEVEL=6/g"
-        "s/BACKUP_PREFIX=/BACKUP_PREFIX=postgres-dump-all/g"
+        "s|^BACKUP_PREFIX=.*|BACKUP_PREFIX=postgres-dump-all|g"
         #"s/RUN_AT_STARTUP=1/RUN_AT_STARTUP=1/g"
         #"s/STARTUP_BKP_DELAY_SECS=5/STARTUP_BKP_DELAY_SECS=5/g"
         "s/S3_REGION=<region>/S3_REGION=${USERVER_DB_BKP_S3_REGION}/g"
         "s/S3_BUCKET=<bucket>/S3_BUCKET=${USERVER_DB_BKP_S3_BUCKET}/g"
         "s/S3_ACCESS_KEY_ID=<key_id>/S3_ACCESS_KEY_ID=${USERVER_DB_BKP_S3_ID}/g"
         "s~S3_SECRET_ACCESS_KEY=<access_key>~S3_SECRET_ACCESS_KEY=${USERVER_DB_BKP_S3_KEY}~g"
-        "s~S3_PREFIX=~S3_PREFIX=${USERVER_DB_BKP_S3_PREFIX}~g"
+        "s|^S3_PREFIX=.*|S3_PREFIX=${USERVER_DB_BKP_S3_PREFIX}|g"
         #"s/S3_ENDPOINT=/S3_ENDPOINT=/g"
         #"s/S3_S3V4=no/S3_S3V4=no/g"
     )
@@ -53,7 +53,7 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     sed_replace_occurrences userver-datamgr/backup/.env "${envs[@]}"
 
     envs=(
-      "s/POSTGRES_PASSWORD=/POSTGRES_PASSWORD=${USERVER_DB_PASSWORD}/g"
+      "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${USERVER_DB_PASSWORD}|g"
       #"s/PGDATA=/var/lib/postgresql/data/pgdata/PGDATA=/var/lib/postgresql/data/pgdata/g"
     )
     cp userver-datamgr/postgres/.env.template userver-datamgr/postgres/.env

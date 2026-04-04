@@ -38,8 +38,8 @@ if [ ! -d userver-logger ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
 
     # userver-grafana
     envs=(
-        "s/GF_SECURITY_ADMIN_USER=/GF_SECURITY_ADMIN_USER=${USERVER_LOGGER_GRAFANA_ADMIN_USER}/g"
-        "s/GF_SECURITY_ADMIN_PASSWORD=/GF_SECURITY_ADMIN_PASSWORD=${USERVER_LOGGER_GRAFANA_ADMIN_PASSWORD}/g"
+        "s|^GF_SECURITY_ADMIN_USER=.*|GF_SECURITY_ADMIN_USER=${USERVER_LOGGER_GRAFANA_ADMIN_USER}|g"
+        "s|^GF_SECURITY_ADMIN_PASSWORD=.*|GF_SECURITY_ADMIN_PASSWORD=${USERVER_LOGGER_GRAFANA_ADMIN_PASSWORD}|g"
     )
     cp userver-logger/grafana/.env.template userver-logger/grafana/.env
     prepare_virtual_host userver-logger/grafana/.env "${USERVER_LOGGER_GRAFANA_HOSTNAME}"

@@ -29,7 +29,7 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
 
     if [ "$USERVER_MODE" == "prod" ]; then
     envs=(
-        "s/SERVER_NAME=/SERVER_NAME=${hosts}/g"
+        "s|^SERVER_NAME=.*|SERVER_NAME=${hosts}|g"
         "s/AUTO_LETS_ENCRYPT=no/AUTO_LETS_ENCRYPT=yes/g"
         #"s/GENERATE_SELF_SIGNED_SSL=no/GENERATE_SELF_SIGNED_SSL=no/g"
         #"s/HTTP2=yes/HTTP2=yes/g"
@@ -40,7 +40,7 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     )
     else
     envs=(
-        "s/SERVER_NAME=/SERVER_NAME=${hosts}/g"
+        "s|^SERVER_NAME=.*|SERVER_NAME=${hosts}|g"
         #"s/AUTO_LETS_ENCRYPT=no/AUTO_LETS_ENCRYPT=no/g"
         "s/GENERATE_SELF_SIGNED_SSL=no/GENERATE_SELF_SIGNED_SSL=yes/g"
         #"s/HTTP2=yes/HTTP2=yes/g"
@@ -51,8 +51,13 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     )
     fi
 
-    cp userver-web/nginx-firewall/.env.template userver-web/nginx-firewall/.env
-    sed_replace_occurrences userver-web/nginx-firewall/.env "${envs[@]}"
+    # userver-web main no longer ships nginx-firewall (compose only uses nginx-proxy, letsencrypt, monitor, whoami).
+    if [ -f userver-web/nginx-firewall/.env.template ]; then
+        cp userver-web/nginx-firewall/.env.template userver-web/nginx-firewall/.env
+        sed_replace_occurrences userver-web/nginx-firewall/.env "${envs[@]}"
+    else
+        echo "Skipping nginx-firewall/.env (not present in this userver-web checkout)."
+    fi
 
     envs=(
         "s/HTTPS_METHOD=redirect/HTTPS_METHOD=redirect/g"
@@ -61,8 +66,8 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     sed_replace_occurrences userver-web/nginx-proxy/.env "${envs[@]}"
 
     envs=(
-        "s/DEFAULT_EMAIL=/DEFAULT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}/g"
-        "s/NGINX_PROXY_CONTAINER=/NGINX_PROXY_CONTAINER=userver-nginx-proxy/g"
+        "s|^DEFAULT_EMAIL=.*|DEFAULT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}|g"
+        "s|^NGINX_PROXY_CONTAINER=.*|NGINX_PROXY_CONTAINER=userver-nginx-proxy|g"
     )
     cp userver-web/letsencrypt/.env.template userver-web/letsencrypt/.env
     sed_replace_occurrences userver-web/letsencrypt/.env "${envs[@]}"

@@ -7,20 +7,32 @@ fi
 
 function stop_and_remove_container {
     container_name=$1
-    container_id="$(docker ps -aq -f name="${container_name}")"
-    if [ ! "$container_id" ]; then
+    # Docker's name= filter matches substrings, so "userver-filemgr" also matches
+    # "userver-filemgr-qcluster". Resolve by exact .Names match.
+    container_id=""
+    local line cid cname
+    while IFS= read -r line; do
+        cid="${line%% *}"
+        cname="${line#* }"
+        cname="${cname#/}"
+        if [ "${cname}" = "${container_name}" ]; then
+            container_id="${cid}"
+            break
+        fi
+    done < <(docker ps -a --format '{{.ID}} {{.Names}}')
+
+    if [ -z "${container_id}" ]; then
         echo "Container '$1' not found, skipping stop&remove"
         return
     fi
 
-    if [ ! "$(docker ps -aq -f status=exited -f name="${container_name}")" ]; then
-        # not exited, stopping
-        echo "Stopping container '${container_name}' ($container_id)"
-        docker stop "$container_id" -t 0 > /dev/null
+    if [ "$(docker inspect -f '{{.State.Running}}' "${container_id}" 2>/dev/null)" = "true" ]; then
+        echo "Stopping container '${container_name}' (${container_id})"
+        docker stop "${container_id}" -t 0 > /dev/null
     fi
 
-    echo "Removing container '${container_name}' ($container_id)"
-    docker rm -f "$container_id" > /dev/null
+    echo "Removing container '${container_name}' (${container_id})"
+    docker rm -f "${container_id}" > /dev/null
 }
 
 function clone_repo {
@@ -32,8 +44,24 @@ function clone_repo {
     if [ -d "${repo_name}" ]; then
         (
             cd "${repo_name}" || exit 1
-            git fetch origin
+            # Docker bind mounts can leave root-owned files; optional sudo chown before git writes.
+            case "${USERVER_REPO_SUDO_CHOWN:-}" in
+                1 | true | yes)
+                    sudo chown -R "$(id -un):$(id -gn)" .
+                    ;;
+                *)
+                    chown -R "$(id -un):$(id -gn)" . 2>/dev/null || true
+                    ;;
+            esac
+            # --prune drops stale origin/master when upstream renamed default to main.
+            git fetch origin --prune
+            # Re-point origin/HEAD to the remote's real default (fixes old clones).
+            git remote set-head origin -a 2>/dev/null || true
+
             main_branch_name="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')"
+            if [ -z "${main_branch_name}" ] || ! git show-ref --verify --quiet "refs/remotes/origin/${main_branch_name}"; then
+                main_branch_name=
+            fi
             if [ -z "${main_branch_name}" ]; then
                 if git show-ref --verify --quiet refs/remotes/origin/main; then
                     main_branch_name=main
@@ -45,8 +73,18 @@ function clone_repo {
                 fi
             fi
             echo "Directory '${repo_name}' already exists, updating from branch '${main_branch_name}'..."
-            git checkout "${main_branch_name}" 2>/dev/null || git checkout -B "${main_branch_name}" "origin/${main_branch_name}"
-            git pull origin "${main_branch_name}" --no-rebase
+            case "${USERVER_REPO_GIT_RESET_HARD:-}" in
+                1 | true | yes)
+                    git checkout -f "${main_branch_name}" 2>/dev/null || git checkout -B "${main_branch_name}" -f "origin/${main_branch_name}"
+                    git reset --hard "origin/${main_branch_name}"
+                    ;;
+                *)
+                    git checkout "${main_branch_name}" 2>/dev/null || git checkout -B "${main_branch_name}" "origin/${main_branch_name}"
+                    git pull origin "${main_branch_name}" --no-rebase
+                    ;;
+            esac
+            # Old clones may still track deleted origin/master; align upstream with the branch we pull.
+            git branch --set-upstream-to="origin/${main_branch_name}" "${main_branch_name}" 2>/dev/null || true
         ) || exit 1
         chown -R "${_owner}" "${repo_name}" 2>/dev/null || true
         return
@@ -62,16 +100,75 @@ function print_title {
     echo "--------------------------------"
 }
 
+# Used before docker exec into Postgres from deploy scripts (e.g. mailer after datamgr).
+# Uses POSTGRES_USER inside the container (same as the DB image init), not USERVER_DB_USER —
+# those often differ and pg_isready -U wrong_user never succeeds (looks like a hang for up to max seconds).
+function wait_for_postgresql_container {
+    local cname="${1:-userver-postgres}"
+    local max="${2:-90}"
+    local i=0
+    echo "Waiting for '${cname}' (pg_isready, up to ${max}s)..."
+    while [ "${i}" -lt "${max}" ]; do
+        if docker exec "${cname}" sh -c 'pg_isready -q -U "${POSTGRES_USER:-postgres}"' >/dev/null 2>&1; then
+            echo "PostgreSQL in '${cname}' is ready."
+            return 0
+        fi
+        docker start "${cname}" >/dev/null 2>&1 || true
+        if [ $((i % 15)) -eq 0 ] && [ "${i}" -gt 0 ]; then
+            echo "  ... still waiting (${i}s / ${max}s); check: docker logs ${cname}"
+        fi
+        sleep 1
+        i=$((i + 1))
+    done
+    echo "Postgres container '${cname}' not ready after ${max}s (pg_isready)." >&2
+    return 1
+}
+
+# Idempotent mailer helpers (PostgreSQL 12+; avoids CREATE DATABASE name IF NOT EXISTS, which is invalid syntax).
+function ensure_postgres_database_if_not_exists {
+    local cname="$1"
+    local db="$2"
+    local exists
+    exists="$(docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -qtAc \"SELECT 1 FROM pg_database WHERE datname='${db}'\"")"
+    if [ "${exists}" != "1" ]; then
+        docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -v ON_ERROR_STOP=1 -c \"CREATE DATABASE ${db};\""
+    fi
+}
+
+function ensure_postgres_role_if_not_exists {
+    local cname="$1"
+    local role="$2"
+    local pass="$3"
+    local exists
+    local pass_esc
+    pass_esc="${pass//\'/\'\'}"
+    exists="$(docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -qtAc \"SELECT 1 FROM pg_roles WHERE rolname='${role}'\"")"
+    if [ "${exists}" != "1" ]; then
+        docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -v ON_ERROR_STOP=1 -c \"CREATE USER ${role} WITH ENCRYPTED PASSWORD '${pass_esc}';\""
+    fi
+}
+
+# Copy .env.template → .env only when .env is absent so manual fixes survive ./run.sh (FORCE_BUILD re-ran cp before).
+function copy_env_template_if_missing {
+    local tmpl="$1"
+    local dest="$2"
+    if [ ! -f "${dest}" ]; then
+        cp "${tmpl}" "${dest}"
+    fi
+}
+
 function prepare_virtual_host {
     # $1 = file
     file=$1
     subdomain=$2
-    echo "Preparing virtual host environment config for '${subdomain}.${USERVER_VIRTUAL_HOST}'"
+    local vhost="${subdomain}.${USERVER_VIRTUAL_HOST}"
+    echo "Preparing virtual host environment config for '${vhost}'"
 
-    sed -i -e "s/VIRTUAL_HOST=/VIRTUAL_HOST=${subdomain}.${USERVER_VIRTUAL_HOST}/g" "$file"
+    # Replace whole lines: prefix-only s/KEY=/ would match KEY=existing and append on re-run.
+    sed -i -e "s|^VIRTUAL_HOST=.*|VIRTUAL_HOST=${vhost}|" "$file"
     if [ "$USERVER_MODE" == "prod" ]; then
-        sed -i -e "s/LETSENCRYPT_HOST=/LETSENCRYPT_HOST=${subdomain}.${USERVER_VIRTUAL_HOST}/g" "$file"
-        sed -i -e "s/LETSENCRYPT_EMAIL=/LETSENCRYPT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}/g" "$file"
+        sed -i -e "s|^LETSENCRYPT_HOST=.*|LETSENCRYPT_HOST=${vhost}|" "$file"
+        sed -i -e "s|^LETSENCRYPT_EMAIL=.*|LETSENCRYPT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}|" "$file"
     fi
 }
 
@@ -90,16 +187,20 @@ function start_service {
 
     echo "${action} ${service}..."
     cd "${service}" || exit 1
+    local _compose_rc=0
     if docker compose version >/dev/null 2>&1; then
         # shellcheck disable=SC2086
-        docker compose up ${build_arg} -d
+        docker compose up ${build_arg} -d || _compose_rc=$?
     else
         # shellcheck disable=SC2086
-        docker-compose up ${build_arg} -d
+        docker-compose up ${build_arg} -d || _compose_rc=$?
     fi
-    cd ..
+    cd .. || return 1
+    return "${_compose_rc}"
 }
 
+# Each sed script should replace a full line for KEY=value rows (e.g. s|^KEY=.*|KEY=val|),
+# not s/KEY=/KEY=val/ — the latter re-matches on re-run and appends to the value.
 function sed_replace_occurrences {
     local file="$1" # Save first argument in a variable
     shift # Shift all arguments to the left (original $1 gets lost)
