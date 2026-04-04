@@ -63,7 +63,6 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
         "s/HTTPS_METHOD=redirect/HTTPS_METHOD=redirect/g"
     )
     cp userver-web/nginx-proxy/.env.template userver-web/nginx-proxy/.env
-    sed_replace_occurrences userver-web/nginx-proxy/.env "${envs[@]}"
 
     envs=(
         "s|^DEFAULT_EMAIL=.*|DEFAULT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}|g"
