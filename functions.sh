@@ -161,12 +161,14 @@ function prepare_virtual_host {
     # $1 = file
     file=$1
     subdomain=$2
-    echo "Preparing virtual host environment config for '${subdomain}.${USERVER_VIRTUAL_HOST}'"
+    local vhost="${subdomain}.${USERVER_VIRTUAL_HOST}"
+    echo "Preparing virtual host environment config for '${vhost}'"
 
-    sed -i -e "s/VIRTUAL_HOST=/VIRTUAL_HOST=${subdomain}.${USERVER_VIRTUAL_HOST}/g" "$file"
+    # Replace whole lines: prefix-only s/KEY=/ would match KEY=existing and append on re-run.
+    sed -i -e "s|^VIRTUAL_HOST=.*|VIRTUAL_HOST=${vhost}|" "$file"
     if [ "$USERVER_MODE" == "prod" ]; then
-        sed -i -e "s/LETSENCRYPT_HOST=/LETSENCRYPT_HOST=${subdomain}.${USERVER_VIRTUAL_HOST}/g" "$file"
-        sed -i -e "s/LETSENCRYPT_EMAIL=/LETSENCRYPT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}/g" "$file"
+        sed -i -e "s|^LETSENCRYPT_HOST=.*|LETSENCRYPT_HOST=${vhost}|" "$file"
+        sed -i -e "s|^LETSENCRYPT_EMAIL=.*|LETSENCRYPT_EMAIL=${USERVER_LETSENCRYPT_EMAIL}|" "$file"
     fi
 }
 
@@ -197,6 +199,8 @@ function start_service {
     return "${_compose_rc}"
 }
 
+# Each sed script should replace a full line for KEY=value rows (e.g. s|^KEY=.*|KEY=val|),
+# not s/KEY=/KEY=val/ — the latter re-matches on re-run and appends to the value.
 function sed_replace_occurrences {
     local file="$1" # Save first argument in a variable
     shift # Shift all arguments to the left (original $1 gets lost)
