@@ -39,7 +39,7 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     envs=(
         "s/HOSTNAME=<subdomain>/HOSTNAME=${USERVER_MAIL_HOSTNAME}/g"
         "s/DOMAINNAME=<domain>/DOMAINNAME=${USERVER_VIRTUAL_HOST}/g"
-        "s/OVERRIDE_HOSTNAME=<full_host>/OVERRIDE_HOSTNAME=${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}/g"
+        "s|^OVERRIDE_HOSTNAME=.*|OVERRIDE_HOSTNAME=${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}|"
     )
     copy_env_template_if_missing userver-mailer/mail/.env.template userver-mailer/mail/.env
     prepare_virtual_host userver-mailer/mail/.env "${USERVER_MAIL_HOSTNAME}"
@@ -88,5 +88,9 @@ fi
 
 echo "Cleaning port 25"
 fuser -k -TERM -n tcp 25
+
+if [ -d userver-mailer ]; then
+    ensure_mailer_stack_mail_fqdn "${ORCH_ROOT}/userver-mailer"
+fi
 
 start_service userver-mailer "$build"

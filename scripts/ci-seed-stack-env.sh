@@ -34,3 +34,13 @@ if [ "$(basename "${STACK_ROOT}")" = "userver-eventmgr" ]; then
         "${STACK_ROOT}/rabbitmq/data" \
         "${STACK_ROOT}/rabbitmq/conf.d" 2>/dev/null || true
 fi
+
+# No root .env.template — compose still substitutes MAIL_FQDN for the mail container hostname.
+if [ "$(basename "${STACK_ROOT}")" = "userver-mailer" ]; then
+    root_env="${STACK_ROOT}/.env"
+    if [ -f "$root_env" ] && grep -q '^MAIL_FQDN=' "$root_env" 2>/dev/null; then
+        sed -i 's|^MAIL_FQDN=.*|MAIL_FQDN=mail.ci.example.invalid|' "$root_env"
+    else
+        printf '%s\n' 'MAIL_FQDN=mail.ci.example.invalid' >> "$root_env"
+    fi
+fi

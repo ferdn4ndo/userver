@@ -172,6 +172,22 @@ function prepare_virtual_host {
     fi
 }
 
+# userver-mailer: MAIL_FQDN (compose hostname) and OVERRIDE_HOSTNAME (DMS TLS paths) must match the mail FQDN.
+function ensure_mailer_stack_mail_fqdn {
+    local mailer_root="${1:?}"
+    local fqdn="${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    local mail_env="${mailer_root}/mail/.env"
+    if [ -f "$mail_env" ]; then
+        sed -i "s|^OVERRIDE_HOSTNAME=.*|OVERRIDE_HOSTNAME=${fqdn}|" "$mail_env"
+    fi
+    local ef="${mailer_root}/.env"
+    if [ -f "$ef" ] && grep -q '^MAIL_FQDN=' "$ef" 2>/dev/null; then
+        sed -i "s|^MAIL_FQDN=.*|MAIL_FQDN=${fqdn}|" "$ef"
+    else
+        printf '%s\n' "MAIL_FQDN=${fqdn}" >> "$ef"
+    fi
+}
+
 function start_service {
     # $1 = start a service (ex: userver-web)
     service=$1

@@ -28,6 +28,12 @@ If Git reports **`unable to unlink`** / **`Permission denied`** under a cloned s
 
 Scripts use `docker compose` when available and fall back to `docker-compose`. Volume and network names are determined by the project directory and compose file; avoid renaming `userver-*` folders arbitrarily if you rely on default project names.
 
+## Mailer: `OVERRIDE_HOSTNAME` and `MAIL_FQDN` (docker-mailserver + Let’s Encrypt)
+
+docker-mailserver resolves TLS under `/etc/letsencrypt/live/<FQDN>/` from the **container hostname**, not from **`LETSENCRYPT_HOST`**. Upstream **`userver-mailer`** expects **`OVERRIDE_HOSTNAME`** in **`mail/.env`** and **`MAIL_FQDN`** in **`.env` next to `docker-compose.yml`** to match your real mail FQDN (and nginx-proxy certs).
+
+After upgrading **userver-mailer** and this orchestration repo, run **`./deploy_userver_mailer.sh`** (or **`./run.sh`**) so **`deploy_userver_mailer.sh`** updates both; or set **`OVERRIDE_HOSTNAME`** and **`MAIL_FQDN`** manually to the same value (typically **`${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}`**).
+
 ## New: userver-eventmgr
 
 Adding EventMgr does not migrate data from other services. It creates new broker state under `userver-eventmgr/` bind mounts. Set `USERVER_EVENTMGR_*` in `.env` and run `./deploy_userver_eventmgr.sh` or full `./run.sh`.
