@@ -1,3 +1,5 @@
 .env
 .idea
 userver-*
+# CI clones (see scripts/ci-clone-one-stack.sh)
+ci/stacks/

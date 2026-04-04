@@ -41,7 +41,6 @@ sed_replace_occurrences userver-auth/.env "${envs[@]}"
 
 start_service userver-auth 1
 
-echo "Waiting 10s for container startup"
-sleep 10s
-
-docker exec -it userver-auth sh -c "./setup.sh"
+echo "userver-auth entrypoint runs setup.sh (DB + migrations) then Waitress (no separate docker exec)."
+echo "Waiting 20s for first-time migrations / startup..."
+sleep 20s

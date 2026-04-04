@@ -11,6 +11,8 @@ if [ "$USERVER_SKIP_DEPLOY_FILEMGR" = "true" ]; then
     exit 0
 fi
 
+FM_ROOT="userver-filemgr/filemgr"
+
 if [ -d userver-filemgr ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-filemgr exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
     start_service userver-filemgr 0
@@ -18,6 +20,7 @@ if [ -d userver-filemgr ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
 fi
 
 stop_and_remove_container userver-filemgr
+stop_and_remove_container userver-filemgr-qcluster
 clone_repo userver-filemgr
 
 envs=(
@@ -33,8 +36,6 @@ envs=(
     "s/POSTGRES_DB=/POSTGRES_DB=${USERVER_FILEMGR_DB_NAME}/g"
     "s/POSTGRES_USER=/POSTGRES_USER=${USERVER_FILEMGR_DB_USER}/g"
     "s/POSTGRES_PASS=/POSTGRES_PASS=${USERVER_FILEMGR_DB_PASS}/g"
-    #"s/POSTGRES_PORT=5432/POSTGRES_PORT=5432/g"
-    #"s~LOCAL_TEST_STORAGE_ROOT=/storages/local/~LOCAL_TEST_STORAGE_ROOT=/storages/local/~g"
 
     "s/TEST_AWS_S3_REGION=/TEST_AWS_S3_REGION=${USERVER_FILMGR_S3_TEST_REGION}/g"
     "s/TEST_AWS_S3_BUCKET=/TEST_AWS_S3_BUCKET=${USERVER_FILMGR_S3_TEST_BUCKET}/g"
@@ -43,20 +44,23 @@ envs=(
     "s~TEST_AWS_S3_ROOT_FOLDER=~TEST_AWS_S3_ROOT_FOLDER=${USERVER_FILMGR_S3_TEST_PREFIX}~g"
 
     "s/ENV_MODE=prod/ENV_MODE=${USERVER_MODE}/g"
-    #"s/DOWNLOAD_EXP_BYTES_SECS_RATIO=4.25/DOWNLOAD_EXP_BYTES_SECS_RATIO=4.25/g"
-    #"s/GUVICORN_WORKERS=3/GUVICORN_WORKERS=3/g"
 
     "s/POSTGRES_ROOT_USER=/POSTGRES_ROOT_USER=${USERVER_DB_USER}/g"
     "s/POSTGRES_ROOT_PASS=/POSTGRES_ROOT_PASS=${USERVER_DB_PASSWORD}/g"
     "s/USERVER_AUTH_SYSTEM_CREATION_TOKEN=/USERVER_AUTH_SYSTEM_CREATION_TOKEN=${USERVER_AUTH_SYSTEM_CREATION_TOKEN}/g"
 )
-cp userver-filemgr/.env.template userver-filemgr/.env
-prepare_virtual_host userver-filemgr/.env "${USERVER_FILEMGR_HOSTNAME}"
-sed_replace_occurrences userver-filemgr/.env "${envs[@]}"
+cp "${FM_ROOT}/.env.template" "${FM_ROOT}/.env"
+prepare_virtual_host "${FM_ROOT}/.env" "${USERVER_FILEMGR_HOSTNAME}"
+sed_replace_occurrences "${FM_ROOT}/.env" "${envs[@]}"
 
 start_service userver-filemgr 1
 
-echo "Waiting 10s for container startup"
-sleep 10s
-
-docker exec -it userver-filemgr sh -c "./setup.sh"
+echo "Filemgr entrypoint runs migrations via setup.sh; waiting for healthcheck (qcluster starts after web is healthy)."
+for _ in $(seq 1 60); do
+    if docker inspect --format='{{.State.Health.Status}}' userver-filemgr 2>/dev/null | grep -q healthy; then
+        echo "userver-filemgr is healthy."
+        exit 0
+    fi
+    sleep 2
+done
+echo "Warning: userver-filemgr did not report healthy within ~120s; check logs: docker logs userver-filemgr" >&2

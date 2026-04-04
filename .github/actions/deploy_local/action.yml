@@ -1,0 +1,49 @@
+########################################################################################
+# Composite action: bring up userver-eventmgr (Mosquitto + RabbitMQ) for CI            #
+#--------------------------------------------------------------------------------------#
+# Requires: checkout + ./scripts/ci-clone-one-stack.sh userver-eventmgr +              #
+#           ./scripts/ci-seed-stack-env.sh ci/stacks/userver-eventmgr                  #
+########################################################################################
+
+name: "EventMgr stack (CI)"
+description: "Create nginx-proxy network, start Mosquitto and RabbitMQ, verify health (env must be seeded beforehand)"
+
+inputs:
+  root-work-dir:
+    description: "Directory containing userver-eventmgr docker-compose.yml (relative to repo root)."
+    required: false
+    default: "ci/stacks/userver-eventmgr"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Ensure Docker network for compose
+      run: |
+        set -euo pipefail
+        if ! docker network inspect nginx-proxy >/dev/null 2>&1; then
+          docker network create nginx-proxy
+        fi
+      shell: bash
+
+    - name: Build and start stack
+      env:
+        ROOT_WORK_DIR: "${{ inputs.root-work-dir }}"
+      run: |
+        set -euo pipefail
+        cd "${ROOT_WORK_DIR}"
+        docker compose up --build --remove-orphans --detach --wait --wait-timeout 120
+        docker compose ps
+      shell: bash
+
+    - name: Smoke checks
+      run: |
+        set -euo pipefail
+        docker exec userver-rabbitmq rabbitmq-diagnostics -q ping
+        docker exec userver-mosquitto sh -c 'nc -z 127.0.0.1 1883 && nc -z 127.0.0.1 9001'
+        code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 http://127.0.0.1:15672/ || echo "000")
+        case "$code" in 200|302|401) echo "RabbitMQ management UI HTTP status: $code" ;; *)
+          echo "Unexpected HTTP status from management UI: $code"
+          exit 1
+          ;;
+        esac
+      shell: bash

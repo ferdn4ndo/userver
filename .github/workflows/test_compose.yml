@@ -1,0 +1,38 @@
+name: Compose validation
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  validate-compose-spec:
+    name: "compose config — ${{ matrix.stack }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack:
+          - userver-web
+          - userver-logger
+          - userver-datamgr
+          - userver-eventmgr
+          - userver-mailer
+          - userver-auth
+          - userver-filemgr
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone ${{ matrix.stack }}
+        run: ./scripts/ci-clone-one-stack.sh "${{ matrix.stack }}"
+
+      - name: Seed .env from .env.template
+        run: ./scripts/ci-seed-stack-env.sh "ci/stacks/${{ matrix.stack }}"
+
+      - name: Validate docker compose specification
+        run: |
+          set -euo pipefail
+          cd "ci/stacks/${{ matrix.stack }}"
+          docker compose -f docker-compose.yml config --quiet
