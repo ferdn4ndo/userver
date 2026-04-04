@@ -13,6 +13,19 @@ This document applies to the **orchestration repo** only. Service images and dat
 - Schema changes are applied by each app’s own **migrations** (Alembic / Django) when their containers start (`setup.sh` / entrypoints). Back up databases before major upgrades (`pg_dump`).
 - If you only rebuild images and keep the same Postgres volume and database names, existing data is reused.
 
+### `User "postgres" does not have a valid SCRAM secret`
+
+If **`userver-postgres`** logs show **FATAL** with **does not have a valid SCRAM secret** (for **`postgres`**, **`webmail`**, **`postfix`**, etc.), TCP clients cannot authenticate with SCRAM even when the password in `.env` looks right. That usually means the role has **no usable password verifier** in the catalog (often after a **major PostgreSQL upgrade** on an existing data directory).
+
+1. Ensure **`USERVER_DB_PASSWORD`** in the orchestration **`.env`** is the password you want for the **`postgres`** superuser (and that **`userver-datamgr/postgres/.env`** **`POSTGRES_PASSWORD`** matches, for documentation consistency).
+2. From the orchestration repo root, run:
+
+   **`./scripts/fix_postgres_superuser_scram.sh`**
+
+   It connects as the container OS user **`postgres`** over the **local socket** and runs **`ALTER USER postgres WITH PASSWORD …`** using **`USERVER_DB_PASSWORD`**.
+
+3. If **mailer** DB users still log the same error, connect as **`postgres`** with that password and set their passwords again, or re-run mailer deploy so **`CREATE USER` / `ALTER USER`** run from a working superuser session.
+
 ## Default Git branch (`main` vs `master`)
 
 Upstream repos use **`main`** as the default branch. Older checkouts may still have **`refs/remotes/origin/HEAD` → `master`** even after GitHub dropped `master`, which caused `fatal: couldn't find remote ref master` on pull. **`./run.sh`** now runs **`git fetch origin --prune`**, **`git remote set-head origin -a`** (refresh default branch), then picks **`main`** or **`master`** only if that remote-tracking ref exists. Run **`./scripts/update_nested_services.sh`** for the same logic on all clones.
