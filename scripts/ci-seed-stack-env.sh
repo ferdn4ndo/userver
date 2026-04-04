@@ -34,10 +34,3 @@ if [ "$(basename "${STACK_ROOT}")" = "userver-eventmgr" ]; then
         "${STACK_ROOT}/rabbitmq/data" \
         "${STACK_ROOT}/rabbitmq/conf.d" 2>/dev/null || true
 fi
-
-# Upstream .env.template files may accidentally contain merge-conflict markers; Docker's env parser rejects them.
-while IFS= read -r -d '' envf; do
-    if grep -q '^<<<<<<< ' "${envf}" 2>/dev/null; then
-        sed -i '/^<<<<<<< /,/^=======$/d; /^>>>>>>> /d' "${envf}"
-    fi
-done < <(find "${STACK_ROOT}" -name '.env' -print0)

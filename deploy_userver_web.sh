@@ -51,8 +51,13 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     )
     fi
 
-    cp userver-web/nginx-firewall/.env.template userver-web/nginx-firewall/.env
-    sed_replace_occurrences userver-web/nginx-firewall/.env "${envs[@]}"
+    # userver-web main no longer ships nginx-firewall (compose only uses nginx-proxy, letsencrypt, monitor, whoami).
+    if [ -f userver-web/nginx-firewall/.env.template ]; then
+        cp userver-web/nginx-firewall/.env.template userver-web/nginx-firewall/.env
+        sed_replace_occurrences userver-web/nginx-firewall/.env "${envs[@]}"
+    else
+        echo "Skipping nginx-firewall/.env (not present in this userver-web checkout)."
+    fi
 
     envs=(
         "s/HTTPS_METHOD=redirect/HTTPS_METHOD=redirect/g"

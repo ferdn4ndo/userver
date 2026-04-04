@@ -32,8 +32,24 @@ function clone_repo {
     if [ -d "${repo_name}" ]; then
         (
             cd "${repo_name}" || exit 1
-            git fetch origin
+            # Docker bind mounts can leave root-owned files; optional sudo chown before git writes.
+            case "${USERVER_REPO_SUDO_CHOWN:-}" in
+                1 | true | yes)
+                    sudo chown -R "$(id -un):$(id -gn)" .
+                    ;;
+                *)
+                    chown -R "$(id -un):$(id -gn)" . 2>/dev/null || true
+                    ;;
+            esac
+            # --prune drops stale origin/master when upstream renamed default to main.
+            git fetch origin --prune
+            # Re-point origin/HEAD to the remote's real default (fixes old clones).
+            git remote set-head origin -a 2>/dev/null || true
+
             main_branch_name="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')"
+            if [ -z "${main_branch_name}" ] || ! git show-ref --verify --quiet "refs/remotes/origin/${main_branch_name}"; then
+                main_branch_name=
+            fi
             if [ -z "${main_branch_name}" ]; then
                 if git show-ref --verify --quiet refs/remotes/origin/main; then
                     main_branch_name=main
@@ -45,8 +61,18 @@ function clone_repo {
                 fi
             fi
             echo "Directory '${repo_name}' already exists, updating from branch '${main_branch_name}'..."
-            git checkout "${main_branch_name}" 2>/dev/null || git checkout -B "${main_branch_name}" "origin/${main_branch_name}"
-            git pull origin "${main_branch_name}" --no-rebase
+            case "${USERVER_REPO_GIT_RESET_HARD:-}" in
+                1 | true | yes)
+                    git checkout -f "${main_branch_name}" 2>/dev/null || git checkout -B "${main_branch_name}" -f "origin/${main_branch_name}"
+                    git reset --hard "origin/${main_branch_name}"
+                    ;;
+                *)
+                    git checkout "${main_branch_name}" 2>/dev/null || git checkout -B "${main_branch_name}" "origin/${main_branch_name}"
+                    git pull origin "${main_branch_name}" --no-rebase
+                    ;;
+            esac
+            # Old clones may still track deleted origin/master; align upstream with the branch we pull.
+            git branch --set-upstream-to="origin/${main_branch_name}" "${main_branch_name}" 2>/dev/null || true
         ) || exit 1
         chown -R "${_owner}" "${repo_name}" 2>/dev/null || true
         return
@@ -60,6 +86,24 @@ function print_title {
     echo "--------------------------------"
     echo "$1"
     echo "--------------------------------"
+}
+
+# Used before docker exec into Postgres from deploy scripts (e.g. mailer after datamgr).
+function wait_for_postgresql_container {
+    local cname="${1:-userver-postgres}"
+    local dbuser="${2:-${USERVER_DB_USER:-postgres}}"
+    local max="${3:-90}"
+    local i=0
+    while [ "${i}" -lt "${max}" ]; do
+        if docker exec "${cname}" pg_isready -U "${dbuser}" >/dev/null 2>&1; then
+            return 0
+        fi
+        docker start "${cname}" >/dev/null 2>&1 || true
+        sleep 1
+        i=$((i + 1))
+    done
+    echo "Postgres container '${cname}' not ready after ${max}s (pg_isready)." >&2
+    return 1
 }
 
 function prepare_virtual_host {

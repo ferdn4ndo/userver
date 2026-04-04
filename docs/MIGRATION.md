@@ -15,7 +15,14 @@ This document applies to the **orchestration repo** only. Service images and dat
 
 ## Default Git branch (`main` vs `master`)
 
-Upstream repos now use **`main`** as the default branch. Existing clones on `master` are switched automatically on the next `./run.sh` (or `clone_repo`) **fetch + checkout + pull** to `origin/HEAD` (or `main` / `master` fallback).
+Upstream repos use **`main`** as the default branch. Older checkouts may still have **`refs/remotes/origin/HEAD` → `master`** even after GitHub dropped `master`, which caused `fatal: couldn't find remote ref master` on pull. **`./run.sh`** now runs **`git fetch origin --prune`**, **`git remote set-head origin -a`** (refresh default branch), then picks **`main`** or **`master`** only if that remote-tracking ref exists. Run **`./scripts/update_nested_services.sh`** for the same logic on all clones.
+
+## Permission denied / dirty `userver-*` checkouts
+
+If Git reports **`unable to unlink`** / **`Permission denied`** under a cloned service, or **`would be overwritten by checkout`**, containers have often written **root-owned** or **locally modified** files into bind-mounted paths inside those repos.
+
+- One-off sync: **`./scripts/update_nested_services.sh --chown --reset-hard`** (uses `sudo` for chown when your user cannot fix ownership).
+- Ongoing deploy host: set **`USERVER_REPO_SUDO_CHOWN=true`** in **`.env`** so **`./run.sh`** chowns before pull; set **`USERVER_REPO_GIT_RESET_HARD=true`** only if you accept discarding any local drift in service repos so they always match **`origin`**.
 
 ## Compose v2
 

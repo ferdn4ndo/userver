@@ -16,7 +16,7 @@ Architecture overview: [`docs/userver_main_diagram.drawio`](docs/userver_main_di
 6. **[userver-auth](https://github.com/ferdn4ndo/userver-auth)** — Flask JWT auth API (cloned into `userver-auth/`).
 7. **[userver-filemgr](https://github.com/ferdn4ndo/userver-filemgr)** — Django REST file manager with S3 integration (cloned into `userver-filemgr/`).
 
-Cloned `userver-*` directories are **gitignored** here; they are plain Git checkouts of the upstream repos. **`./run.sh`** clones or **updates** them (default branch: `origin/HEAD`, else `main` / `master`). To refresh all existing clones without a full orchestration run, use **`./scripts/update_nested_services.sh`**.
+Cloned `userver-*` directories are **gitignored** here; they are plain Git checkouts of the upstream repos. **`./run.sh`** clones or **updates** them (default branch: `origin/HEAD`, else `main` / `master`). To refresh all existing clones without a full orchestration run, use **`./scripts/update_nested_services.sh`**. On servers where Docker left root-owned files or you have accidental local edits in a clone, use **`./scripts/update_nested_services.sh --chown --reset-hard`** (see **`docs/MIGRATION.md`**).
 
 ## Data and upgrades
 
@@ -61,7 +61,7 @@ Open **80**, **443**, mail ports as needed, and **22** for SSH from a trusted so
 
 GitHub Actions in `.github/workflows/`:
 
-- **Compose validation** — matrix over **all seven stacks** (`userver-web`, `userver-logger`, `userver-datamgr`, `userver-eventmgr`, `userver-mailer`, `userver-auth`, `userver-filemgr`): shallow clone, seed `**/.env` from `**/.env.template`, strip accidental git conflict markers in `.env` if present (so `docker compose config` can parse), then validate the Compose file.
+- **Compose validation** — matrix over **all seven stacks** (`userver-web`, `userver-logger`, `userver-datamgr`, `userver-eventmgr`, `userver-mailer`, `userver-auth`, `userver-filemgr`): shallow clone, seed `**/.env` from `**/.env.template`, then validate the Compose file.
 - **Validate EventMgr stack** — clone + seed **userver-eventmgr**, then `docker compose up --wait` and smoke checks (`.github/actions/deploy_local`).
 - **ShellCheck** and **Gitleaks** on the orchestration repo.
 
