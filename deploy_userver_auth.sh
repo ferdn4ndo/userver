@@ -13,7 +13,8 @@ fi
 
 if [ -d userver-auth ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-auth exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
-    start_service userver-auth 0
+    start_service userver-auth 0 || exit 1
+    wait_for_container_stable userver-auth 20 5 || exit 1
     exit 0
 fi
 
@@ -39,8 +40,7 @@ cp userver-auth/.env.template userver-auth/.env
 prepare_virtual_host userver-auth/.env "${USERVER_AUTH_HOSTNAME}"
 sed_replace_occurrences userver-auth/.env "${envs[@]}"
 
-start_service userver-auth 1
+start_service userver-auth 1 || exit 1
 
-echo "userver-auth entrypoint runs setup.sh (DB + migrations) then Waitress (no separate docker exec)."
-echo "Waiting 20s for first-time migrations / startup..."
-sleep 20s
+echo "userver-auth: entrypoint runs setup.sh (DB + migrations) then Waitress."
+wait_for_container_stable userver-auth 20 5 || exit 1

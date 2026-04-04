@@ -93,4 +93,5 @@ if [ -d userver-mailer ]; then
     ensure_mailer_stack_mail_fqdn "${ORCH_ROOT}/userver-mailer"
 fi
 
-start_service userver-mailer "$build"
+start_service userver-mailer "$build" || exit 1
+wait_for_containers_stable 15 userver-mail userver-mailbackup userver-webmail userver-postfixadmin || exit 1

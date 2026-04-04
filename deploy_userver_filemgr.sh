@@ -13,9 +13,28 @@ fi
 
 FM_ROOT="userver-filemgr/filemgr"
 
+filemgr_troubleshooting() {
+    echo "" >&2
+    echo "userver-filemgr troubleshooting:" >&2
+    echo "  docker logs --tail=200 userver-filemgr" >&2
+    echo "  cd userver-filemgr && docker compose ps && docker compose logs --tail=80 userver-filemgr" >&2
+    echo "  Check ${FM_ROOT}/.env: POSTGRES_* , POSTGRES_ROOT_* , USERVER_AUTH_HOST (reachable userver-auth)." >&2
+}
+
 if [ -d userver-filemgr ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-filemgr exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
-    start_service userver-filemgr 0
+    start_service userver-filemgr 0 || exit 1
+    echo "Waiting for userver-filemgr healthcheck; then checking qcluster stability..."
+    wait_for_container_healthy userver-filemgr 90 2 || {
+        filemgr_troubleshooting
+        exit 1
+    }
+    wait_for_container_to_exist userver-filemgr-qcluster 120 || exit 1
+    wait_for_container_stable userver-filemgr-qcluster 8 5 || {
+        echo "userver-filemgr-qcluster failed stability check. Recent logs:" >&2
+        docker logs --tail=80 userver-filemgr-qcluster 1>&2 || true
+        exit 1
+    }
     exit 0
 fi
 
@@ -53,20 +72,19 @@ cp "${FM_ROOT}/.env.template" "${FM_ROOT}/.env"
 prepare_virtual_host "${FM_ROOT}/.env" "${USERVER_FILEMGR_HOSTNAME}"
 sed_replace_occurrences "${FM_ROOT}/.env" "${envs[@]}"
 
-if ! start_service userver-filemgr 1; then
+start_service userver-filemgr 1 || {
     echo "userver-filemgr: docker compose up failed." >&2
     exit 1
-fi
+}
 
-echo "Filemgr entrypoint runs migrations via setup.sh; waiting for healthcheck (qcluster starts after web is healthy)."
-for _ in $(seq 1 60); do
-    # Do not use grep -q healthy: it matches the substring inside "unhealthy".
-    _h="$(docker inspect --format='{{.State.Health.Status}}' userver-filemgr 2>/dev/null || true)"
-    if [ "${_h}" = "healthy" ]; then
-        echo "userver-filemgr is healthy."
-        exit 0
-    fi
-    sleep 2
-done
-echo "userver-filemgr did not become healthy within ~120s (last status: ${_h:-unknown}). Check: docker logs userver-filemgr" >&2
-exit 1
+echo "userver-filemgr: setup.sh then gunicorn; waiting for healthcheck (qcluster starts after web is healthy)."
+wait_for_container_healthy userver-filemgr 90 2 || {
+    filemgr_troubleshooting
+    exit 1
+}
+wait_for_container_to_exist userver-filemgr-qcluster 120 || exit 1
+wait_for_container_stable userver-filemgr-qcluster 8 5 || {
+    echo "userver-filemgr-qcluster failed stability check. Recent logs:" >&2
+    docker logs --tail=80 userver-filemgr-qcluster 1>&2 || true
+    exit 1
+}

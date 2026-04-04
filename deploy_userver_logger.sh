@@ -73,4 +73,5 @@ if [ ! -d userver-logger ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     sed_replace_occurrences userver-logger/promtail/.env "${envs[@]}"
 fi
 
-start_service userver-logger "$build"
+start_service userver-logger "$build" || exit 1
+wait_for_containers_stable 12 userver-loki userver-promtail userver-grafana userver-container-monitor || exit 1

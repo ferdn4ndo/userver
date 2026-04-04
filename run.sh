@@ -26,22 +26,22 @@ else
 fi
 
 # Deploy uServer-Web
-./deploy_userver_web.sh
+./deploy_userver_web.sh || exit 1
 
 # Deploy uServer-Logger
-./deploy_userver_logger.sh
+./deploy_userver_logger.sh || exit 1
 
 # Deploy uServer-DataMgr
-./deploy_userver_datamgr.sh
+./deploy_userver_datamgr.sh || exit 1
 
 # Deploy uServer-EventMgr
-./deploy_userver_eventmgr.sh
+./deploy_userver_eventmgr.sh || exit 1
 
 # Deploy uServer-Mailer
-./deploy_userver_mailer.sh
+./deploy_userver_mailer.sh || exit 1
 
 # Deploy uServer-Auth
-./deploy_userver_auth.sh
+./deploy_userver_auth.sh || exit 1
 
 # Deploy uServer-FileMgr
 ./deploy_userver_filemgr.sh || exit 1
