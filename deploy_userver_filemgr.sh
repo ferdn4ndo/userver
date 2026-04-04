@@ -18,7 +18,7 @@ filemgr_troubleshooting() {
     echo "userver-filemgr troubleshooting:" >&2
     echo "  docker logs --tail=200 userver-filemgr" >&2
     echo "  cd userver-filemgr && docker compose ps && docker compose logs --tail=80 userver-filemgr" >&2
-    echo "  Check ${FM_ROOT}/.env: POSTGRES_* , POSTGRES_ROOT_* , USERVER_AUTH_HOST (reachable userver-auth)." >&2
+    echo "  Check ${FM_ROOT}/.env: POSTGRES_* , POSTGRES_ROOT_* (must match Postgres superuser), USERVER_AUTH_HOST (reachable userver-auth)." >&2
 }
 
 if [ -d userver-filemgr ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then

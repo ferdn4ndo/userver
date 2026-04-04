@@ -13,13 +13,8 @@ fi
 
 if [ -d userver-auth ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-auth exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
-<<<<<<< HEAD
     start_service userver-auth 0 || exit 1
     wait_for_container_stable userver-auth 20 5 || exit 1
-=======
-    # --force-recreate: plain "up" leaves the old container running, so entrypoint never re-runs setup.sh.
-    start_service userver-auth 0 "--force-recreate"
->>>>>>> 489faa3 (fix: services db setup)
     exit 0
 fi
 

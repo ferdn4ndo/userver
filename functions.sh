@@ -232,7 +232,7 @@ function wait_for_container_stable {
     local state
     state="$(docker inspect --format='{{.State.Status}}' "${cname}" 2>/dev/null || true)"
     if [ -z "${state}" ]; then
-        echo "Container '${cname}' not found." >&2
+        echo "Container '${cname}' not found after wait." >&2
         return 1
     fi
     if [ "${state}" = "restarting" ]; then
