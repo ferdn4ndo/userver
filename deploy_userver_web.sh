@@ -79,5 +79,15 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     prepare_virtual_host userver-web/whoami/.env "${USERVER_WHOAMI_HOSTNAME}"
 fi
 
+# acme-companion 2.6+ needs NGINX_DOCKER_GEN_CONTAINER set to the nginx-proxy container when docker-gen is embedded
+# in nginxproxy/nginx-proxy (otherwise: "can't get docker-gen container id"). Apply on every run for older .env files.
+if [ -f userver-web/letsencrypt/.env ]; then
+    if grep -q '^NGINX_DOCKER_GEN_CONTAINER=' userver-web/letsencrypt/.env; then
+        sed -i -e 's/^NGINX_DOCKER_GEN_CONTAINER=.*/NGINX_DOCKER_GEN_CONTAINER=userver-nginx-proxy/' userver-web/letsencrypt/.env
+    else
+        printf '%s\n' '' 'NGINX_DOCKER_GEN_CONTAINER=userver-nginx-proxy' >> userver-web/letsencrypt/.env
+    fi
+fi
+
 start_service userver-web "$build" || exit 1
 wait_for_containers_stable 12 userver-nginx-proxy userver-letsencrypt userver-monitor userver-whoami || exit 1
