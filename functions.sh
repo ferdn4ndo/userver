@@ -89,16 +89,22 @@ function print_title {
 }
 
 # Used before docker exec into Postgres from deploy scripts (e.g. mailer after datamgr).
+# Uses POSTGRES_USER inside the container (same as the DB image init), not USERVER_DB_USER —
+# those often differ and pg_isready -U wrong_user never succeeds (looks like a hang for up to max seconds).
 function wait_for_postgresql_container {
     local cname="${1:-userver-postgres}"
-    local dbuser="${2:-${USERVER_DB_USER:-postgres}}"
-    local max="${3:-90}"
+    local max="${2:-90}"
     local i=0
+    echo "Waiting for '${cname}' (pg_isready, up to ${max}s)..."
     while [ "${i}" -lt "${max}" ]; do
-        if docker exec "${cname}" pg_isready -U "${dbuser}" >/dev/null 2>&1; then
+        if docker exec "${cname}" sh -c 'pg_isready -q -U "${POSTGRES_USER:-postgres}"' >/dev/null 2>&1; then
+            echo "PostgreSQL in '${cname}' is ready."
             return 0
         fi
         docker start "${cname}" >/dev/null 2>&1 || true
+        if [ $((i % 15)) -eq 0 ] && [ "${i}" -gt 0 ]; then
+            echo "  ... still waiting (${i}s / ${max}s); check: docker logs ${cname}"
+        fi
         sleep 1
         i=$((i + 1))
     done

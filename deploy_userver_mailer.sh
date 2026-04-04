@@ -35,7 +35,7 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     prepare_virtual_host userver-mailer/mail/.env "${USERVER_MAIL_HOSTNAME}"
     sed_replace_occurrences userver-mailer/mail/.env "${envs[@]}"
 
-    wait_for_postgresql_container userver-postgres "${USERVER_DB_USER}" 120
+    wait_for_postgresql_container userver-postgres 120
 
     docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create database ${USERVER_WEBMAIL_DB_NAME};\""
     docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create user ${USERVER_WEBMAIL_DB_USER} with encrypted password '${USERVER_WEBMAIL_DB_PASS}';\""
