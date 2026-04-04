@@ -37,8 +37,8 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
 
     wait_for_postgresql_container userver-postgres 120
 
-    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create database ${USERVER_WEBMAIL_DB_NAME};\""
-    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create user ${USERVER_WEBMAIL_DB_USER} with encrypted password '${USERVER_WEBMAIL_DB_PASS}';\""
+    ensure_postgres_database_if_not_exists userver-postgres "${USERVER_WEBMAIL_DB_NAME}"
+    ensure_postgres_role_if_not_exists userver-postgres "${USERVER_WEBMAIL_DB_USER}" "${USERVER_WEBMAIL_DB_PASS}"
     docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"grant all privileges on database ${USERVER_WEBMAIL_DB_NAME} to ${USERVER_WEBMAIL_DB_USER};\""
 
     envs=(
@@ -57,8 +57,8 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     prepare_virtual_host userver-mailer/webmail/.env "${USERVER_WEBMAIL_HOSTNAME}"
     sed_replace_occurrences userver-mailer/webmail/.env "${envs[@]}"
 
-    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create database ${USERVER_POSTFIXADMIN_DB_NAME};\""
-    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create user ${USERVER_POSTFIXADMIN_DB_USER} with encrypted password '${USERVER_POSTFIXADMIN_DB_PASS}';\""
+    ensure_postgres_database_if_not_exists userver-postgres "${USERVER_POSTFIXADMIN_DB_NAME}"
+    ensure_postgres_role_if_not_exists userver-postgres "${USERVER_POSTFIXADMIN_DB_USER}" "${USERVER_POSTFIXADMIN_DB_PASS}"
     docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"grant all privileges on database ${USERVER_POSTFIXADMIN_DB_NAME} to ${USERVER_POSTFIXADMIN_DB_USER};\""
 
     envs=(

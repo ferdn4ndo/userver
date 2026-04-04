@@ -7,20 +7,32 @@ fi
 
 function stop_and_remove_container {
     container_name=$1
-    container_id="$(docker ps -aq -f name="${container_name}")"
-    if [ ! "$container_id" ]; then
+    # Docker's name= filter matches substrings, so "userver-filemgr" also matches
+    # "userver-filemgr-qcluster". Resolve by exact .Names match.
+    container_id=""
+    local line cid cname
+    while IFS= read -r line; do
+        cid="${line%% *}"
+        cname="${line#* }"
+        cname="${cname#/}"
+        if [ "${cname}" = "${container_name}" ]; then
+            container_id="${cid}"
+            break
+        fi
+    done < <(docker ps -aq --format '{{.ID}} {{.Names}}')
+
+    if [ -z "${container_id}" ]; then
         echo "Container '$1' not found, skipping stop&remove"
         return
     fi
 
-    if [ ! "$(docker ps -aq -f status=exited -f name="${container_name}")" ]; then
-        # not exited, stopping
-        echo "Stopping container '${container_name}' ($container_id)"
-        docker stop "$container_id" -t 0 > /dev/null
+    if [ "$(docker inspect -f '{{.State.Running}}' "${container_id}" 2>/dev/null)" = "true" ]; then
+        echo "Stopping container '${container_name}' (${container_id})"
+        docker stop "${container_id}" -t 0 > /dev/null
     fi
 
-    echo "Removing container '${container_name}' ($container_id)"
-    docker rm -f "$container_id" > /dev/null
+    echo "Removing container '${container_name}' (${container_id})"
+    docker rm -f "${container_id}" > /dev/null
 }
 
 function clone_repo {
@@ -110,6 +122,26 @@ function wait_for_postgresql_container {
     done
     echo "Postgres container '${cname}' not ready after ${max}s (pg_isready)." >&2
     return 1
+}
+
+# Requires PostgreSQL 15+ (CREATE DATABASE ... IF NOT EXISTS). Idempotent mailer/datamgr helpers.
+function ensure_postgres_database_if_not_exists {
+    local cname="$1"
+    local db="$2"
+    docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -v ON_ERROR_STOP=1 -c \"CREATE DATABASE ${db} IF NOT EXISTS;\""
+}
+
+function ensure_postgres_role_if_not_exists {
+    local cname="$1"
+    local role="$2"
+    local pass="$3"
+    local exists
+    local pass_esc
+    pass_esc="${pass//\'/\'\'}"
+    exists="$(docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -qtAc \"SELECT 1 FROM pg_roles WHERE rolname='${role}'\"")"
+    if [ "${exists}" != "1" ]; then
+        docker exec "${cname}" sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U \"${USERVER_DB_USER}\" -v ON_ERROR_STOP=1 -c \"CREATE USER ${role} WITH ENCRYPTED PASSWORD '${pass_esc}';\""
+    fi
 }
 
 function prepare_virtual_host {
