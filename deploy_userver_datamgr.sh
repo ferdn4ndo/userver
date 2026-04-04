@@ -29,7 +29,7 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
         "s/POSTGRES_DATABASE=<db>/POSTGRES_DATABASE=/g"
         "s/POSTGRES_HOST=<host>/POSTGRES_HOST=userver-postgres/g"
         #"s/POSTGRES_PORT=5432/POSTGRES_PORT=5432/g"
-        "s/POSTGRES_USER=<user>/POSTGRES_USER=postgres/g"
+        "s/POSTGRES_USER=<user>/POSTGRES_USER=${USERVER_DB_USER}/g"
         "s/POSTGRES_PASSWORD=<password>/POSTGRES_PASSWORD=${USERVER_DB_PASSWORD}/g"
         #"s/POSTGRES_EXTRA_OPTS=/POSTGRES_EXTRA_OPTS=/g"
         "s/SCHEDULE=@every 6h/SCHEDULE=@every ${USERVER_DB_BKP_FREQUENCY}/g"
@@ -53,6 +53,7 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     sed_replace_occurrences userver-datamgr/backup/.env "${envs[@]}"
 
     envs=(
+      "s~^POSTGRES_USER=.*~POSTGRES_USER=${USERVER_DB_USER}~g"
       "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${USERVER_DB_PASSWORD}|g"
       #"s/PGDATA=/var/lib/postgresql/data/pgdata/PGDATA=/var/lib/postgresql/data/pgdata/g"
     )

@@ -17,12 +17,12 @@ This document applies to the **orchestration repo** only. Service images and dat
 
 If **`userver-postgres`** logs show **FATAL** with **does not have a valid SCRAM secret** (for **`postgres`**, **`webmail`**, **`postfix`**, etc.), TCP clients cannot authenticate with SCRAM even when the password in `.env` looks right. That usually means the role has **no usable password verifier** in the catalog (often after a **major PostgreSQL upgrade** on an existing data directory).
 
-1. Ensure **`USERVER_DB_PASSWORD`** in the orchestration **`.env`** is the password you want for the **`postgres`** superuser (and that **`userver-datamgr/postgres/.env`** **`POSTGRES_PASSWORD`** matches, for documentation consistency).
+1. Ensure **`USERVER_DB_USER`** and **`USERVER_DB_PASSWORD`** in the orchestration **`.env`** match the Postgres superuser (**`POSTGRES_USER`** / **`POSTGRES_PASSWORD`** in **`userver-datamgr/postgres/.env`**).
 2. From the orchestration repo root, run:
 
    **`./scripts/fix_postgres_superuser_scram.sh`**
 
-   It connects as the container OS user **`postgres`** over the **local socket** and runs **`ALTER USER postgres WITH PASSWORD …`** using **`USERVER_DB_PASSWORD`**.
+   It runs **`ALTER USER … WITH PASSWORD …`** for **`USERVER_DB_USER`** over a **local socket** inside the container using **`USERVER_DB_PASSWORD`**.
 
 3. If **mailer** DB users still log the same error, connect as **`postgres`** with that password and set their passwords again, or re-run mailer deploy so **`CREATE USER` / `ALTER USER`** run from a working superuser session.
 

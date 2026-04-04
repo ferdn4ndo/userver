@@ -193,6 +193,8 @@ function start_service {
     service=$1
     # $2 = if it should be rebuilt instead of restarted
     build=$2
+    # $3 = optional extra args for "docker compose up" (e.g. --force-recreate so entrypoint/setup.sh runs again)
+    compose_extra="${3-}"
 
     build_arg=
     action="Restarting"
@@ -206,10 +208,10 @@ function start_service {
     local _compose_rc=0
     if docker compose version >/dev/null 2>&1; then
         # shellcheck disable=SC2086
-        docker compose up ${build_arg} -d || _compose_rc=$?
+        docker compose up ${build_arg} ${compose_extra} -d || _compose_rc=$?
     else
         # shellcheck disable=SC2086
-        docker-compose up ${build_arg} -d || _compose_rc=$?
+        docker-compose up ${build_arg} ${compose_extra} -d || _compose_rc=$?
     fi
     cd .. || return 1
     return "${_compose_rc}"
