@@ -1,0 +1,29 @@
+name: Codebase Quality
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-codebase-quality:
+    name: ShellCheck (shell scripts)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck with ReviewDog
+        uses: reviewdog/action-shellcheck@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          path: "."
+          pattern: "*.sh"
+          exclude: "./.git/*"
+          check_all_files_with_shebangs: "true"

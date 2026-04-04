@@ -1,0 +1,42 @@
+name: Create Release Assets
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  create-release-asset:
+    name: Create Release Assets
+    runs-on: ubuntu-latest
+    env:
+      ARCHIVE_NAME: ${{ github.event.repository.name }}-${{ github.event.release.tag_name }}
+    steps:
+      - name: Download release tarball
+        run: curl -sL "${{ github.event.release.tarball_url }}" -o "${ARCHIVE_NAME}.tar.gz"
+
+      - name: Unpack and strip .github
+        run: |
+          mkdir "${ARCHIVE_NAME}"
+          tar -xzf "${ARCHIVE_NAME}.tar.gz" -C "${ARCHIVE_NAME}" --strip-components 1
+          rm -rf "${ARCHIVE_NAME}/.github"
+
+      - name: Repack archive
+        run: tar -czf "${ARCHIVE_NAME}.tar.gz" "${ARCHIVE_NAME}"
+
+      - name: SHA256 checksums
+        run: sha256sum "${ARCHIVE_NAME}.tar.gz" > checksum.txt
+
+      - name: Upload assets to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # No checkout step — gh would otherwise resolve the repo from .git and fail.
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "${ARCHIVE_NAME}.tar.gz" \
+            checksum.txt \
+            --clobber \
+            --repo "${{ github.repository }}"

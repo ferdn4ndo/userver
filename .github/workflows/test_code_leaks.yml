@@ -1,0 +1,28 @@
+name: Code Leaks Check
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-gitleaks:
+    name: Check for code leaks with GitLeaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for GitLeaks
+        uses: gitleaks/gitleaks-action@v2 # Action page: <https://github.com/gitleaks/gitleaks-action>
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Avoid PR comment API failures (fork PRs, tight token perms); findings still fail the job + SARIF artifact.
+          GITLEAKS_ENABLE_COMMENTS: "false"

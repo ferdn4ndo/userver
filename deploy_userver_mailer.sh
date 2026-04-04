@@ -35,9 +35,9 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     prepare_virtual_host userver-mailer/mail/.env "${USERVER_MAIL_HOSTNAME}"
     sed_replace_occurrences userver-mailer/mail/.env "${envs[@]}"
 
-    docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create database ${USERVER_WEBMAIL_DB_NAME};\""
-    docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create user ${USERVER_WEBMAIL_DB_USER} with encrypted password '${USERVER_WEBMAIL_DB_PASS}';\""
-    docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"grant all privileges on database ${USERVER_WEBMAIL_DB_NAME} to ${USERVER_WEBMAIL_DB_USER};\""
+    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create database ${USERVER_WEBMAIL_DB_NAME};\""
+    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create user ${USERVER_WEBMAIL_DB_USER} with encrypted password '${USERVER_WEBMAIL_DB_PASS}';\""
+    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"grant all privileges on database ${USERVER_WEBMAIL_DB_NAME} to ${USERVER_WEBMAIL_DB_USER};\""
 
     envs=(
         "s/ROUNDCUBEMAIL_DB_TYPE=/ROUNDCUBEMAIL_DB_TYPE=pgsql/g"
@@ -55,9 +55,9 @@ if [ ! -d userver-mailer ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     prepare_virtual_host userver-mailer/webmail/.env "${USERVER_WEBMAIL_HOSTNAME}"
     sed_replace_occurrences userver-mailer/webmail/.env "${envs[@]}"
 
-    docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create database ${USERVER_POSTFIXADMIN_DB_NAME};\""
-    docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create user ${USERVER_POSTFIXADMIN_DB_USER} with encrypted password '${USERVER_POSTFIXADMIN_DB_PASS}';\""
-    docker exec -it userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"grant all privileges on database ${USERVER_POSTFIXADMIN_DB_NAME} to ${USERVER_POSTFIXADMIN_DB_USER};\""
+    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create database ${USERVER_POSTFIXADMIN_DB_NAME};\""
+    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"create user ${USERVER_POSTFIXADMIN_DB_USER} with encrypted password '${USERVER_POSTFIXADMIN_DB_PASS}';\""
+    docker exec userver-postgres sh -c "export PGPASSWORD='${USERVER_DB_PASSWORD}'; psql -U ${USERVER_DB_USER} -c \"grant all privileges on database ${USERVER_POSTFIXADMIN_DB_NAME} to ${USERVER_POSTFIXADMIN_DB_USER};\""
 
     envs=(
         "s/POSTFIXADMIN_DB_TYPE=/POSTFIXADMIN_DB_TYPE=${USERVER_POSTFIXADMIN_DB_TYPE}/g"

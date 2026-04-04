@@ -1,0 +1,26 @@
+name: Validate EventMgr stack
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  validate-compose-stack:
+    name: Docker Compose up and smoke checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Clone and seed userver-eventmgr
+        run: |
+          set -euo pipefail
+          ./scripts/ci-clone-one-stack.sh userver-eventmgr
+          ./scripts/ci-seed-stack-env.sh ci/stacks/userver-eventmgr
+
+      - name: Start Mosquitto and RabbitMQ
+        uses: ./.github/actions/deploy_local

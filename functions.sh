@@ -27,17 +27,33 @@ function clone_repo {
     repo_name="$1"
     echo "Cloning repository '${repo_name}'..."
 
+    _owner="${USER}:$(id -gn)"
+
     if [ -d "${repo_name}" ]; then
-        cd "${repo_name}" || exit
-        main_branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-        echo "Directory '${repo_name}' already exists, updating from branch '${main_branch_name}'..."
-        git pull origin "${main_branch_name}" --no-rebase
-        cd ..
+        (
+            cd "${repo_name}" || exit 1
+            git fetch origin
+            main_branch_name="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')"
+            if [ -z "${main_branch_name}" ]; then
+                if git show-ref --verify --quiet refs/remotes/origin/main; then
+                    main_branch_name=main
+                elif git show-ref --verify --quiet refs/remotes/origin/master; then
+                    main_branch_name=master
+                else
+                    echo "Could not determine default branch for '${repo_name}' (no origin/HEAD, main, or master)." >&2
+                    exit 1
+                fi
+            fi
+            echo "Directory '${repo_name}' already exists, updating from branch '${main_branch_name}'..."
+            git checkout "${main_branch_name}" 2>/dev/null || git checkout -B "${main_branch_name}" "origin/${main_branch_name}"
+            git pull origin "${main_branch_name}" --no-rebase
+        ) || exit 1
+        chown -R "${_owner}" "${repo_name}" 2>/dev/null || true
         return
     fi
 
     git clone https://github.com/ferdn4ndo/"${repo_name}".git
-    chown -R "$USER":"$GROUP" "${repo_name}"
+    chown -R "${_owner}" "${repo_name}" 2>/dev/null || true
 }
 
 function print_title {
@@ -74,7 +90,13 @@ function start_service {
 
     echo "${action} ${service}..."
     cd "${service}" || exit 1
-    docker-compose up $build_arg -d
+    if docker compose version >/dev/null 2>&1; then
+        # shellcheck disable=SC2086
+        docker compose up ${build_arg} -d
+    else
+        # shellcheck disable=SC2086
+        docker-compose up ${build_arg} -d
+    fi
     cd ..
 }
 
@@ -94,5 +116,16 @@ function remove_service_images_and_volumes {
     service_folder=$1
 
     echo "Removing images and volumes of the service ${service_folder}"
-    (cd "$service_folder" || exit; docker-compose rm -fsv)
+    if [ ! -d "$service_folder" ]; then
+        echo "Directory '${service_folder}' not present, skipping"
+        return
+    fi
+    (
+        cd "$service_folder" || exit 1
+        if docker compose version >/dev/null 2>&1; then
+            docker compose rm -fsv
+        else
+            docker-compose rm -fsv
+        fi
+    )
 }
