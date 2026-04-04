@@ -12,7 +12,8 @@ fi
 
 if [ -d userver-eventmgr ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-eventmgr exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
-    start_service userver-eventmgr 0
+    start_service userver-eventmgr 0 || exit 1
+    wait_for_containers_stable 8 userver-mosquitto userver-rabbitmq || exit 1
     exit 0
 fi
 
@@ -54,4 +55,5 @@ chmod -R a+rwx \
     userver-eventmgr/rabbitmq/data \
     userver-eventmgr/rabbitmq/conf.d 2>/dev/null || true
 
-start_service userver-eventmgr 1
+start_service userver-eventmgr 1 || exit 1
+wait_for_containers_stable 8 userver-mosquitto userver-rabbitmq || exit 1

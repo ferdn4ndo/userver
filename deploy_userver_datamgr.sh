@@ -60,9 +60,5 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     sed_replace_occurrences userver-datamgr/postgres/.env "${envs[@]}"
 fi
 
-start_service userver-datamgr "$build"
-
-echo "Waiting 10 secs for datamgr startup..."
-sleep 10
-
-# ToDo: check if postgres is healthy by performing a simple query
+start_service userver-datamgr "$build" || exit 1
+wait_for_containers_stable 10 userver-postgres userver-redis userver-adminer userver-databackup || exit 1

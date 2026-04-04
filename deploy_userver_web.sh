@@ -79,4 +79,5 @@ if [ ! -d userver-web ] || [ "$USERVER_FORCE_BUILD" == "true" ]; then
     prepare_virtual_host userver-web/whoami/.env "${USERVER_WHOAMI_HOSTNAME}"
 fi
 
-start_service userver-web "$build"
+start_service userver-web "$build" || exit 1
+wait_for_containers_stable 12 userver-nginx-proxy userver-letsencrypt userver-monitor userver-whoami || exit 1

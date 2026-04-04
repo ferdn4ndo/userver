@@ -172,6 +172,22 @@ function prepare_virtual_host {
     fi
 }
 
+# userver-mailer: MAIL_FQDN (compose hostname) and OVERRIDE_HOSTNAME (DMS TLS paths) must match the mail FQDN.
+function ensure_mailer_stack_mail_fqdn {
+    local mailer_root="${1:?}"
+    local fqdn="${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}"
+    local mail_env="${mailer_root}/mail/.env"
+    if [ -f "$mail_env" ]; then
+        sed -i "s|^OVERRIDE_HOSTNAME=.*|OVERRIDE_HOSTNAME=${fqdn}|" "$mail_env"
+    fi
+    local ef="${mailer_root}/.env"
+    if [ -f "$ef" ] && grep -q '^MAIL_FQDN=' "$ef" 2>/dev/null; then
+        sed -i "s|^MAIL_FQDN=.*|MAIL_FQDN=${fqdn}|" "$ef"
+    else
+        printf '%s\n' "MAIL_FQDN=${fqdn}" >> "$ef"
+    fi
+}
+
 function start_service {
     # $1 = start a service (ex: userver-web)
     service=$1
@@ -197,6 +213,153 @@ function start_service {
     fi
     cd .. || return 1
     return "${_compose_rc}"
+}
+
+# After compose up: optional warmup, then ensure running and RestartCount stable (not crash-looping).
+# Args: container_name, warmup_seconds (default 20; use 0 to skip), settle_seconds between samples (default 5).
+function wait_for_container_stable {
+    local cname="${1:?container name}"
+    local warmup_sec="${2:-20}"
+    local settle_sec="${3:-5}"
+
+    if [ "${warmup_sec}" != "0" ]; then
+        echo "Waiting ${warmup_sec}s for ${cname} (startup)..."
+        sleep "${warmup_sec}"
+    fi
+
+    local state
+    state="$(docker inspect --format='{{.State.Status}}' "${cname}" 2>/dev/null || true)"
+    if [ -z "${state}" ]; then
+        echo "Container '${cname}' not found." >&2
+        return 1
+    fi
+    if [ "${state}" = "restarting" ]; then
+        echo "Container '${cname}' is restarting (crash loop). Recent logs:" >&2
+        docker logs --tail=80 "${cname}" 1>&2 || true
+        return 1
+    fi
+    if [ "${state}" != "running" ]; then
+        echo "Container '${cname}' state is '${state}' (expected running). Recent logs:" >&2
+        docker logs --tail=80 "${cname}" 1>&2 || true
+        return 1
+    fi
+
+    local c1 c2
+    c1="$(docker inspect --format='{{.RestartCount}}' "${cname}" 2>/dev/null)"
+    sleep "${settle_sec}"
+    state="$(docker inspect --format='{{.State.Status}}' "${cname}" 2>/dev/null || true)"
+    if [ "${state}" != "running" ]; then
+        echo "Container '${cname}' left running state (now '${state:-missing}'). Recent logs:" >&2
+        docker logs --tail=80 "${cname}" 1>&2 || true
+        return 1
+    fi
+    c2="$(docker inspect --format='{{.RestartCount}}' "${cname}" 2>/dev/null)"
+    if [ "${c1}" != "${c2}" ]; then
+        echo "Container '${cname}' restart count changed (${c1} -> ${c2}); likely crash loop. Recent logs:" >&2
+        docker logs --tail=80 "${cname}" 1>&2 || true
+        return 1
+    fi
+
+    echo "${cname}: stable (running, RestartCount=${c2})."
+    return 0
+}
+
+# Poll until healthcheck=healthy, or fail fast on exited/dead/unhealthy.
+# Args: container_name, max_attempts (default 90), delay_seconds (default 2).
+function wait_for_container_healthy {
+    local cname="${1:?container name}"
+    local attempts="${2:-90}"
+    local delay="${3:-2}"
+
+    local i state exitcode health
+    for i in $(seq 1 "${attempts}"); do
+        state="$(docker inspect --format='{{.State.Status}}' "${cname}" 2>/dev/null || true)"
+        if [ -z "${state}" ]; then
+            echo "wait_for_container_healthy: '${cname}' not found yet (${i}/${attempts})." >&2
+            sleep "${delay}"
+            continue
+        fi
+
+        case "${state}" in
+            exited|dead)
+                exitcode="$(docker inspect --format='{{.State.ExitCode}}' "${cname}" 2>/dev/null || echo "?")"
+                echo "Container '${cname}' ${state} (ExitCode=${exitcode}) before healthcheck passed. Recent logs:" >&2
+                docker logs --tail=120 "${cname}" 1>&2 || true
+                return 1
+                ;;
+            restarting)
+                if [ "${i}" -ge 25 ]; then
+                    echo "Container '${cname}' still restarting after ~$((i * delay))s; giving up. Recent logs:" >&2
+                    docker logs --tail=120 "${cname}" 1>&2 || true
+                    return 1
+                fi
+                if [ "$((i % 5))" -eq 1 ]; then
+                    echo "Container '${cname}' is restarting (${i}/${attempts}); recent logs:" >&2
+                    docker logs --tail=50 "${cname}" 1>&2 || true
+                fi
+                ;;
+        esac
+
+        if [ "${state}" = "running" ]; then
+            health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${cname}" 2>/dev/null || echo none)"
+            case "${health}" in
+                healthy)
+                    echo "${cname}: healthcheck reports healthy."
+                    return 0
+                    ;;
+                unhealthy)
+                    echo "Container '${cname}' is running but healthcheck=unhealthy. Recent logs:" >&2
+                    docker logs --tail=120 "${cname}" 1>&2 || true
+                    return 1
+                    ;;
+            esac
+        fi
+
+        sleep "${delay}"
+    done
+
+    echo "Timeout: '${cname}' did not become healthy within $((attempts * delay))s." >&2
+    state="$(docker inspect --format='{{.State.Status}}' "${cname}" 2>/dev/null || true)"
+    health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "${cname}" 2>/dev/null || true)"
+    echo "Last observed: Status=${state:-?} Health=${health:-?}" >&2
+    docker logs --tail=120 "${cname}" 1>&2 || true
+    return 1
+}
+
+# Poll until docker knows about the container (e.g. depends_on after another service is healthy).
+function wait_for_container_to_exist {
+    local cname="${1:?container name}"
+    local max_sec="${2:-120}"
+    local i=0
+    echo "Waiting up to ${max_sec}s for container '${cname}' to exist..."
+    while [ "${i}" -lt "${max_sec}" ]; do
+        if docker inspect "${cname}" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+        i=$((i + 1))
+    done
+    echo "Container '${cname}' did not appear within ${max_sec}s." >&2
+    return 1
+}
+
+# One shared warmup, then wait_for_container_stable(..., 0, settle) for each name (typical after a stack compose up).
+function wait_for_containers_stable {
+    local shared="${1:-10}"
+    shift
+    if [ "$#" -eq 0 ]; then
+        echo "wait_for_containers_stable: no container names passed." >&2
+        return 1
+    fi
+    if [ -n "${shared}" ] && [ "${shared}" != "0" ]; then
+        echo "Waiting ${shared}s before stability checks for: $*"
+        sleep "${shared}"
+    fi
+    local c settle="${USERVER_STACK_STABLE_SETTLE_SEC:-5}"
+    for c in "$@"; do
+        wait_for_container_stable "${c}" 0 "${settle}" || return 1
+    done
+    return 0
 }
 
 # Each sed script should replace a full line for KEY=value rows (e.g. s|^KEY=.*|KEY=val|),
