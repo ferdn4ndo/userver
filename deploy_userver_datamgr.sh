@@ -61,5 +61,15 @@ if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     sed_replace_occurrences userver-datamgr/postgres/.env "${envs[@]}"
 fi
 
+# nginx-proxy defaults to upstream port 80; Adminer listens on 8080 → ERR_EMPTY_RESPONSE / bad gateway without this.
+_adminer_env="userver-datamgr/adminer/.env"
+if [ -f "${_adminer_env}" ]; then
+    if grep -q '^VIRTUAL_PORT=' "${_adminer_env}"; then
+        sed -i -e 's/^VIRTUAL_PORT=.*/VIRTUAL_PORT=8080/' "${_adminer_env}"
+    else
+        printf '\n# nginx-proxy: backend port (Adminer image uses 8080, not 80).\nVIRTUAL_PORT=8080\n' >> "${_adminer_env}"
+    fi
+fi
+
 start_service userver-datamgr "$build" || exit 1
 wait_for_containers_stable 10 userver-postgres userver-redis userver-adminer userver-databackup || exit 1
