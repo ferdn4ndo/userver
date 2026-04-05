@@ -13,16 +13,32 @@ fi
 
 FM_ROOT="userver-filemgr/filemgr"
 
+# Defaults keep filemgr aligned with auth: same system name/token as POST /auth/system body, and in-container URL to userver-auth.
+_FILEMGR_AUTH_HOST="${USERVER_FILEMGR_AUTH_HOST:-http://userver-auth:5000}"
+_FILEMGR_SYS_NAME="${USERVER_FILEMGR_AUTH_SYSTEM_NAME:-${USERVER_AUTH_SYSTEM_NAME:-}}"
+_FILEMGR_SYS_TOKEN="${USERVER_FILEMGR_AUTH_SYSTEM_TOKEN:-${USERVER_AUTH_SYSTEM_TOKEN:-}}"
+
+# Refresh auth-related lines from orchestration .env without requiring USERVER_FORCE_BUILD (bind-mounted filemgr/.env).
+sync_filemgr_auth_env_from_orchestration() {
+    local ef="${FM_ROOT}/.env"
+    [ -f "${ef}" ] || return 0
+    sed -i -e "s~^USERVER_AUTH_HOST=.*~USERVER_AUTH_HOST=${_FILEMGR_AUTH_HOST}~" "${ef}"
+    sed -i -e "s~^USERVER_AUTH_SYSTEM_NAME=.*~USERVER_AUTH_SYSTEM_NAME=${_FILEMGR_SYS_NAME}~" "${ef}"
+    sed -i -e "s~^USERVER_AUTH_SYSTEM_TOKEN=.*~USERVER_AUTH_SYSTEM_TOKEN=${_FILEMGR_SYS_TOKEN}~" "${ef}"
+}
+
 filemgr_troubleshooting() {
     echo "" >&2
     echo "userver-filemgr troubleshooting:" >&2
     echo "  docker logs --tail=200 userver-filemgr" >&2
     echo "  cd userver-filemgr && docker compose ps && docker compose logs --tail=80 userver-filemgr" >&2
-    echo "  Check ${FM_ROOT}/.env: POSTGRES_* , POSTGRES_ROOT_* , USERVER_AUTH_HOST (reachable userver-auth)." >&2
+    echo "  Check ${FM_ROOT}/.env: POSTGRES_* , POSTGRES_ROOT_* , USERVER_AUTH_HOST" >&2
+    echo "  If POST /auth/register returns 401 after system 409: USERVER_AUTH_SYSTEM_NAME + USERVER_AUTH_SYSTEM_TOKEN must match the system already stored in auth's DB (or reset auth DB / drop the system)." >&2
 }
 
 if [ -d userver-filemgr ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "Directory userver-filemgr exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
+    sync_filemgr_auth_env_from_orchestration
     start_service userver-filemgr 0 || exit 1
     echo "Waiting for userver-filemgr healthcheck; then checking qcluster stability..."
     wait_for_container_healthy userver-filemgr 90 2 || {
@@ -43,9 +59,9 @@ stop_and_remove_container userver-filemgr-qcluster
 clone_repo userver-filemgr
 
 envs=(
-    "s|^USERVER_AUTH_HOST=.*|USERVER_AUTH_HOST=${USERVER_FILEMGR_AUTH_HOST}|g"
-    "s|^USERVER_AUTH_SYSTEM_NAME=.*|USERVER_AUTH_SYSTEM_NAME=${USERVER_FILEMGR_AUTH_SYSTEM_NAME}|g"
-    "s|^USERVER_AUTH_SYSTEM_TOKEN=.*|USERVER_AUTH_SYSTEM_TOKEN=${USERVER_FILEMGR_AUTH_SYSTEM_TOKEN}|g"
+    "s~^USERVER_AUTH_HOST=.*~USERVER_AUTH_HOST=${_FILEMGR_AUTH_HOST}~g"
+    "s~^USERVER_AUTH_SYSTEM_NAME=.*~USERVER_AUTH_SYSTEM_NAME=${_FILEMGR_SYS_NAME}~g"
+    "s~^USERVER_AUTH_SYSTEM_TOKEN=.*~USERVER_AUTH_SYSTEM_TOKEN=${_FILEMGR_SYS_TOKEN}~g"
     "s|^USERVER_AUTH_USER=.*|USERVER_AUTH_USER=${USERVER_FILEMGR_AUTH_USER}|g"
     "s|^USERVER_AUTH_PASSWORD=.*|USERVER_AUTH_PASSWORD=${USERVER_FILEMGR_AUTH_PASSWORD}|g"
 
