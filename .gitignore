@@ -1,5 +1,10 @@
 .env
 .idea
-userver-*
+# Cloned upstream stacks (auth + filemgr ship in-repo: Docker Hub images + compose)
+userver-web
+userver-logger
+userver-datamgr
+userver-eventmgr
+userver-mailer
 # CI clones (see scripts/ci-clone-one-stack.sh)
 ci/stacks/

@@ -13,12 +13,14 @@ fi
 
 FM_ROOT="userver-filemgr/filemgr"
 
+export USERVER_FILEMGR_IMAGE_TAG="${USERVER_FILEMGR_IMAGE_TAG:-latest}"
+
 # Defaults keep filemgr aligned with auth: same system name/token as POST /auth/system body, and in-container URL to userver-auth.
 _FILEMGR_AUTH_HOST="${USERVER_FILEMGR_AUTH_HOST:-http://userver-auth:5000}"
 _FILEMGR_SYS_NAME="${USERVER_FILEMGR_AUTH_SYSTEM_NAME:-${USERVER_AUTH_SYSTEM_NAME:-}}"
 _FILEMGR_SYS_TOKEN="${USERVER_FILEMGR_AUTH_SYSTEM_TOKEN:-${USERVER_AUTH_SYSTEM_TOKEN:-}}"
 
-# Refresh auth-related lines from orchestration .env without requiring USERVER_FORCE_BUILD (bind-mounted filemgr/.env).
+# Refresh auth-related lines from orchestration .env without requiring USERVER_FORCE_BUILD.
 sync_filemgr_auth_env_from_orchestration() {
     local ef="${FM_ROOT}/.env"
     [ -f "${ef}" ] || return 0
@@ -36,8 +38,9 @@ filemgr_troubleshooting() {
     echo "  If POST /auth/register returns 401 after system 409: USERVER_AUTH_SYSTEM_NAME + USERVER_AUTH_SYSTEM_TOKEN must match the system already stored in auth's DB (or reset auth DB / drop the system)." >&2
 }
 
-if [ -d userver-filemgr ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
-    echo "Directory userver-filemgr exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
+if [ -f "${FM_ROOT}/.env" ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
+    echo "${FM_ROOT}/.env exists and USERVER_FORCE_BUILD is not true: restarting without full env rewrite (Docker Hub image, compose does not --build)"
+    mkdir -p userver-filemgr/logs userver-filemgr/tmp userver-filemgr/local
     sync_filemgr_auth_env_from_orchestration
     start_service userver-filemgr 0 || exit 1
     echo "Waiting for userver-filemgr healthcheck; then checking qcluster stability..."
@@ -56,7 +59,8 @@ fi
 
 stop_and_remove_container userver-filemgr
 stop_and_remove_container userver-filemgr-qcluster
-clone_repo userver-filemgr
+
+mkdir -p userver-filemgr/logs userver-filemgr/tmp userver-filemgr/local
 
 envs=(
     "s~^USERVER_AUTH_HOST=.*~USERVER_AUTH_HOST=${_FILEMGR_AUTH_HOST}~g"
@@ -88,7 +92,9 @@ cp "${FM_ROOT}/.env.template" "${FM_ROOT}/.env"
 prepare_virtual_host "${FM_ROOT}/.env" "${USERVER_FILEMGR_HOSTNAME}"
 sed_replace_occurrences "${FM_ROOT}/.env" "${envs[@]}"
 
-start_service userver-filemgr 1 || {
+# Docker Hub: ferdn4ndo/userver-filemgr (tag from USERVER_FILEMGR_IMAGE_TAG or compose default latest).
+compose_pull_stack userver-filemgr || exit 1
+start_service userver-filemgr 0 || {
     echo "userver-filemgr: docker compose up failed." >&2
     exit 1
 }

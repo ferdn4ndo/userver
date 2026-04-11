@@ -1,10 +1,10 @@
 # Migrating an existing uServer deployment
 
-This document applies to the **orchestration repo** only. Service images and databases live in the cloned `userver-*` directories and in Docker volumes/bind mounts defined by each service’s `docker-compose.yml`.
+This document applies to the **orchestration repo** only. Service images and databases live in Docker volumes/bind mounts and in cloned **`userver-*`** trees (except **`userver-auth`** and **`userver-filemgr`**, which ship here and use **Docker Hub** images).
 
 ## Preserving data
 
-- **Do not run `./remove.sh`** if you want to keep databases, mail spools, or uploaded files. That script deletes cloned service trees and runs `docker compose rm -fsv` in each stack, which removes **named volumes** declared in those compose files.
+- **Do not run `./remove.sh`** if you want to keep databases, mail spools, or uploaded files. That script runs `docker compose rm -fsv` in each stack (removes **named volumes** in those compose files), deletes **cloned** service trees, and for **auth / filemgr** removes only **`.env`**, **`userver-filemgr/logs`**, **`tmp`**, and **`local`** (compose files stay in this repo).
 - **Bind-mounted directories** on the host (for example `userver-eventmgr/mosquitto/data`, `userver-eventmgr/rabbitmq/data`, `userver-filemgr/local`, `userver-filemgr/logs`) keep their files across image upgrades as long as you do not delete those folders and the compose paths stay the same.
 - After pulling a newer **userver-eventmgr** layout, if upstream renames a volume or mount path, copy data once from the old path to the new path while containers are stopped, then start again.
 
