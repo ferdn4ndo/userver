@@ -13,10 +13,10 @@ Architecture overview: [`docs/userver_main_diagram.drawio`](docs/userver_main_di
 3. **[userver-datamgr](https://github.com/ferdn4ndo/userver-datamgr)** — PostgreSQL, Redis, Adminer, DB backups.
 4. **[userver-eventmgr](https://github.com/ferdn4ndo/userver-eventmgr)** — **Mosquitto (MQTT)** and **RabbitMQ** on the shared `nginx-proxy` network (cloned into `userver-eventmgr/`).
 5. **[userver-mailer](https://github.com/ferdn4ndo/userver-mailer)** — SMTP/IMAP/POP, backups, webmail. **`deploy_userver_mailer.sh`** writes **`userver-mailer/.env`** with **`MAIL_FQDN=${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}`** (Compose **`hostname:`**, Let’s Encrypt paths) and sets **`OVERRIDE_HOSTNAME`** in **`mail/.env`** to the same FQDN for docker-mailserver. PostfixAdmin **`custom-entrypoint.sh`** / **`setup.sh`** live upstream under **`postfixadmin/`**; **`patches/userver-mailer/postfixadmin/`** is only a fallback for old clones missing them.
-6. **[userver-auth](https://github.com/ferdn4ndo/userver-auth)** — Flask JWT auth API (cloned into `userver-auth/`).
-7. **[userver-filemgr](https://github.com/ferdn4ndo/userver-filemgr)** — Django REST file manager with S3 integration (cloned into `userver-filemgr/`).
+6. **[userver-auth](https://github.com/ferdn4ndo/userver-auth)** — JWT auth API (**Docker Hub** `ferdn4ndo/userver-auth`). This repo ships **`userver-auth/docker-compose.yml`** + **`.env.template`**; deploy writes **`.env`** and **`docker compose pull`** + **`up`** (no git clone of the app repo).
+7. **[userver-filemgr](https://github.com/ferdn4ndo/userver-filemgr)** — Django REST file manager (**Docker Hub** `ferdn4ndo/userver-filemgr`). Same pattern under **`userver-filemgr/`** with bind mounts for **`logs/`**, **`tmp/`**, **`local/`**.
 
-Cloned `userver-*` directories are **gitignored** here; they are plain Git checkouts of the upstream repos. **`./run.sh`** clones or **updates** them (default branch: `origin/HEAD`, else `main` / `master`). To refresh all existing clones without a full orchestration run, use **`./scripts/update_nested_services.sh`**. On servers where Docker left root-owned files or you have accidental local edits in a clone, use **`./scripts/update_nested_services.sh --chown --reset-hard`** (see **`docs/MIGRATION.md`**).
+Other `userver-*` directories are **gitignored** plain clones of their upstream repos. **`./run.sh`** clones or **updates** those (default branch: `origin/HEAD`, else `main` / `master`). To refresh those clones without a full orchestration run, use **`./scripts/update_nested_services.sh`**. On servers where Docker left root-owned files or you have accidental local edits in a clone, use **`./scripts/update_nested_services.sh --chown --reset-hard`** (see **`docs/MIGRATION.md`**).
 
 ## Data and upgrades
 
@@ -61,7 +61,7 @@ Open **80**, **443**, mail ports as needed, and **22** for SSH from a trusted so
 
 GitHub Actions in `.github/workflows/`:
 
-- **Compose validation** — matrix over **all seven stacks** (`userver-web`, `userver-logger`, `userver-datamgr`, `userver-eventmgr`, `userver-mailer`, `userver-auth`, `userver-filemgr`): shallow clone, seed `**/.env` from `**/.env.template`, then validate the Compose file.
+- **Compose validation** — matrix over **all seven stacks** (`userver-web`, …, `userver-mailer`): shallow clone, seed env, then `docker compose config`. **`userver-auth`** and **`userver-filemgr`** are **copied from this repo** into `ci/stacks/` (bundled compose + templates), then seeded the same way.
 - **Validate EventMgr stack** — clone + seed **userver-eventmgr**, then `docker compose up --wait` and smoke checks (`.github/actions/deploy_local`).
 - **ShellCheck** and **Gitleaks** on the orchestration repo.
 
@@ -84,10 +84,7 @@ bash -n run.sh stop.sh remove.sh functions.sh scripts/*.sh deploy_userver_*.sh
 ( cd ci/stacks/userver-web && docker compose -f docker-compose.yml config --quiet )
 ```
 
-**Nested services** (run inside each clone; see their READMEs / `.github/workflows/`):
-
-- **userver-auth:** CI builds the image and runs `flask test` with Postgres (see `userver-auth/.github/workflows/test_ut_e2e.yaml`). Locally: `docker build -t userver-auth:local ./userver-auth` then `docker run … userver-auth:local bash -lc "flask test"` with the same env vars as that workflow, plus a reachable Postgres.
-- **userver-filemgr:** follow upstream tests (Django / Docker) in that repository.
+**Auth / FileMgr in this repo:** run tests and builds in the **[upstream](https://github.com/ferdn4ndo/userver-auth)** / **[upstream](https://github.com/ferdn4ndo/userver-filemgr)** repositories; orchestration only consumes published **Docker Hub** images.
 
 ## Contributors
 

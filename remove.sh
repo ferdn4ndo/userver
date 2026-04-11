@@ -28,9 +28,10 @@ remove_service_images_and_volumes userver-datamgr
 remove_service_images_and_volumes userver-logger
 remove_service_images_and_volumes userver-web
 
-echo "Removing service files"
-sudo rm -rf userver-filemgr
-sudo rm -rf userver-auth
+echo "Removing service files (bundled auth/filemgr stacks: only secrets + runtime data, not compose)"
+sudo rm -f userver-auth/.env
+sudo rm -f userver-filemgr/filemgr/.env
+sudo rm -rf userver-filemgr/logs userver-filemgr/tmp userver-filemgr/local
 sudo rm -rf userver-mailer
 sudo rm -rf userver-eventmgr
 sudo rm -rf userver-datamgr

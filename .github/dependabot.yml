@@ -4,13 +4,3 @@ updates:
     directory: /
     schedule:
       interval: weekly
-
-  - package-ecosystem: pip
-    directory: /userver-auth
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: pip
-    directory: /userver-filemgr
-    schedule:
-      interval: weekly

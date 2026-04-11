@@ -5,21 +5,22 @@
 
 print_title "Deploying userver-auth..."
 
+export USERVER_AUTH_IMAGE_TAG="${USERVER_AUTH_IMAGE_TAG:-latest}"
+
 # Skip functionality
 if [ "$USERVER_SKIP_DEPLOY_AUTH" = "true" ]; then
     echo "Deployment of uServer-Auth was skipped due to env 'USERVER_SKIP_DEPLOY_AUTH' set to true"
     exit 0
 fi
 
-if [ -d userver-auth ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
-    echo "Directory userver-auth exists and env USERVER_FORCE_BUILD is not set to true, skipping build"
+if [ -f userver-auth/.env ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
+    echo "userver-auth/.env exists and USERVER_FORCE_BUILD is not true: restarting without env rewrite (Docker Hub image, compose does not --build)"
     start_service userver-auth 0 || exit 1
     wait_for_container_stable userver-auth 20 5 || exit 1
     exit 0
 fi
 
 stop_and_remove_container userver-auth
-clone_repo userver-auth
 
 envs=(
     "s|^POSTGRES_HOST=.*|POSTGRES_HOST=${USERVER_AUTH_DB_HOST}|g"
@@ -40,7 +41,9 @@ cp userver-auth/.env.template userver-auth/.env
 prepare_virtual_host userver-auth/.env "${USERVER_AUTH_HOSTNAME}"
 sed_replace_occurrences userver-auth/.env "${envs[@]}"
 
-start_service userver-auth 1 || exit 1
+# Docker Hub: ferdn4ndo/userver-auth (tag from USERVER_AUTH_IMAGE_TAG or compose default latest).
+compose_pull_stack userver-auth || exit 1
+start_service userver-auth 0 || exit 1
 
-echo "userver-auth: entrypoint runs setup.sh (DB + migrations) then Waitress."
+echo "userver-auth: entrypoint runs setup.sh (DB + migrations) then the Go API."
 wait_for_container_stable userver-auth 20 5 || exit 1

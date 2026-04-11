@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Clone ${{ matrix.stack }}
+      - name: Prepare ${{ matrix.stack }} (clone or bundled copy)
         run: ./scripts/ci-clone-one-stack.sh "${{ matrix.stack }}"
 
       - name: Seed .env from .env.template

@@ -188,6 +188,24 @@ function ensure_mailer_stack_mail_fqdn {
     fi
 }
 
+# Pull service images from the registry (no build). Honors USERVER_COMPOSE_PULL (default: pull).
+function compose_pull_stack {
+    local service_dir="${1:?service directory}"
+    case "${USERVER_COMPOSE_PULL:-true}" in
+        1 | true | yes) ;;
+        *) return 0 ;;
+    esac
+    echo "Pulling images for ${service_dir}..."
+    (
+        cd "${service_dir}" || exit 1
+        if docker compose version >/dev/null 2>&1; then
+            docker compose pull
+        else
+            docker-compose pull
+        fi
+    ) || return 1
+}
+
 function start_service {
     # $1 = start a service (ex: userver-web)
     service=$1
