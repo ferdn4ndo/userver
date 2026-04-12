@@ -3,6 +3,13 @@
 # Common functions
 . ./functions.sh --source-only
 
+# Registry image uses /app/main; dev paths or a leftover docker-compose.override.yml bind-mount make it non-executable.
+sanitize_userver_auth_env_file() {
+    local ef="userver-auth/.env"
+    [ -f "${ef}" ] || return 0
+    sed -i '/^MIGRATE_BIN=/d;/^APP_BIN=/d' "${ef}"
+}
+
 print_title "Deploying userver-auth..."
 
 export USERVER_AUTH_IMAGE_TAG="${USERVER_AUTH_IMAGE_TAG:-latest}"
@@ -15,7 +22,11 @@ fi
 
 if [ -f userver-auth/.env ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "userver-auth/.env exists and USERVER_FORCE_BUILD is not true: restarting without env rewrite (Docker Hub image, compose does not --build)"
-    start_service userver-auth 0 || exit 1
+    sanitize_userver_auth_env_file
+    if [ -f userver-auth/docker-compose.override.yml ]; then
+        echo "Warning: userver-auth/docker-compose.override.yml exists — it may bind-mount over /app and break the Hub image. Use only docker-compose.yml for registry deploy (rename/remove the override)." >&2
+    fi
+    start_service userver-auth 0 "" docker-compose.yml || exit 1
     wait_for_container_stable userver-auth 20 5 || exit 1
     exit 0
 fi
@@ -40,10 +51,15 @@ envs=(
 cp userver-auth/.env.template userver-auth/.env
 prepare_virtual_host userver-auth/.env "${USERVER_AUTH_HOSTNAME}"
 sed_replace_occurrences userver-auth/.env "${envs[@]}"
+sanitize_userver_auth_env_file
 
-# Docker Hub: ferdn4ndo/userver-auth (tag from USERVER_AUTH_IMAGE_TAG or compose default latest).
-compose_pull_stack userver-auth || exit 1
-start_service userver-auth 0 || exit 1
+if [ -f userver-auth/docker-compose.override.yml ]; then
+    echo "Warning: userver-auth/docker-compose.override.yml exists — it may bind-mount over /app and break the Hub image. Use only docker-compose.yml for registry deploy (rename/remove the override)." >&2
+fi
+
+# Docker Hub: ferdn4ndo/userver-auth (explicit -f avoids merging override). Tag: USERVER_AUTH_IMAGE_TAG.
+compose_pull_stack userver-auth docker-compose.yml || exit 1
+start_service userver-auth 0 "" docker-compose.yml || exit 1
 
 echo "userver-auth: entrypoint runs setup.sh (DB + migrations) then the Go API."
 wait_for_container_stable userver-auth 20 5 || exit 1
