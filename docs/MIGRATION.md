@@ -54,3 +54,9 @@ After upgrading **userver-mailer** and this orchestration repo, run **`./deploy_
 ## New: userver-eventmgr
 
 Adding EventMgr does not migrate data from other services. It creates new broker state under `userver-eventmgr/` bind mounts. Set `USERVER_EVENTMGR_*` in `.env` and run `./deploy_userver_eventmgr.sh` or full `./run.sh`.
+
+### MQTT public hostname (`wss://`) vs Adminer / default vhost
+
+`deploy_userver_eventmgr.sh` writes **`VIRTUAL_HOST_MULTIPORTS`** and **`LETSENCRYPT_HOST`** from **`${USERVER_EVENTMGR_MQTT_HOSTNAME}.${USERVER_VIRTUAL_HOST}`**. If public DNS uses a different FQDN (for example **`mqtt.sd40.com.br`** while **`USERVER_VIRTUAL_HOST`** is still **`sd40.lan`** for internal services), set **`USERVER_EVENTMGR_MQTT_WSS_HOST=mqtt.sd40.com.br`** in the orchestration **`.env`** so nginx-proxy registers that name for **Mosquitto** and acme issues a matching certificate.
+
+Otherwise **`https://mqtt.…`** can hit the **wrong** upstream (for example **Adminer** from **userver-datamgr**), which returns HTTP 200 HTML instead of **`101 Switching Protocols`**, and MQTT clients fail with **`Sec-WebSocket-Accept not found`**. Avoid **`DEFAULT_HOST`** on nginx-proxy pointing at a generic HTTP app when many hostnames share one IP; each service needs its own **`server_name`** via **`VIRTUAL_HOST`** / **`VIRTUAL_HOST_MULTIPORTS`**.
