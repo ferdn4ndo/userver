@@ -4,14 +4,18 @@ This document applies to the **orchestration repo** only. Service images and dat
 
 ## Preserving data
 
-- **Do not run `./remove.sh`** if you want to keep databases, mail spools, or uploaded files. That script runs `docker compose rm -fsv` in each stack (removes **named volumes** in those compose files), deletes **cloned** service trees, and for **auth / filemgr** removes only **`.env`**, **`userver-filemgr/logs`**, **`tmp`**, and **`local`** (compose files stay in this repo).
-- **Bind-mounted directories** on the host (for example `userver-eventmgr/mosquitto/data`, `userver-eventmgr/rabbitmq/data`, `userver-filemgr/local`, `userver-filemgr/logs`) keep their files across image upgrades as long as you do not delete those folders and the compose paths stay the same.
+- **Do not run `./remove.sh`** if you want to keep databases, mail spools, or uploaded files. That script runs `docker compose rm -fsv` in each stack (removes **named volumes** in those compose files), deletes **cloned** service trees, and for **auth / filemgr** removes only **`.env`** and **`userver-filemgr/local`** (plus legacy **`logs`** / **`tmp`** if present; compose files stay in this repo).
+- **Bind-mounted directories** on the host (for example `userver-eventmgr/mosquitto/data`, `userver-eventmgr/rabbitmq/data`, **`userver-filemgr/local`**) keep their files across image upgrades as long as you do not delete those folders and the compose paths stay the same.
 - After pulling a newer **userver-eventmgr** layout, if upstream renames a volume or mount path, copy data once from the old path to the new path while containers are stopped, then start again.
 
 ## PostgreSQL (auth, filemgr, mailer, webmail)
 
-- Schema changes are applied by each app’s own **migrations** (Alembic / Django) when their containers start (`setup.sh` / entrypoints). Back up databases before major upgrades (`pg_dump`).
+- Schema changes are applied by each app’s own **migrations** (Go services use embedded migrations in `setup.sh`; others may use Alembic / Django) when their containers start. Back up databases before major upgrades (`pg_dump`).
 - If you only rebuild images and keep the same Postgres volume and database names, existing data is reused.
+
+### Postgres TLS (userver-datamgr)
+
+Upstream **userver-datamgr** enables TLS on **`userver-postgres`** via **`postgres/docker-ensure-tls.sh`**: either **Let’s Encrypt** files from **userver-web** (`../userver-web/certs` when **`USERVER_MODE=prod`** and **`USERVER_VIRTUAL_HOST`** is set) or **self-signed** files from **`userver-datamgr/postgres/ssl/`** (dev). **`deploy_userver_datamgr.sh`** runs **`postgres/generate-ssl.sh`** automatically in dev when **openssl** is available and those files are missing. For production, deploy **userver-web** before DataMgr so ACME can issue certs; the Postgres entrypoint waits for **`${POSTGRES_SSL_CERT_BASENAME}.{crt,key}`**. Apps on the Docker network can use **`sslmode=require`** (e.g. set **`USERVER_AUTH_ENV_MODE=prod`** for userver-auth and **`USERVER_FILEMGR_ENV_MODE=prod`** for userver-filemgr when using this stack in prod).
 
 ### `User "postgres" does not have a valid SCRAM secret`
 

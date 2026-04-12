@@ -1,0 +1,19 @@
+# Image: Docker Hub ferdn4ndo/userver-filemgr (see https://github.com/ferdn4ndo/userver-filemgr — release workflow).
+# Deploy uses docker compose -f docker-compose.yml only (no merge with docker-compose.override.yml).
+services:
+  userver-filemgr:
+    image: ferdn4ndo/userver-filemgr:${USERVER_FILEMGR_IMAGE_TAG:-latest}
+    container_name: userver-filemgr
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MIGRATE_BIN: /app/main
+      APP_BIN: /app/main
+    volumes:
+      - ./local:/storages/local
+
+networks:
+  default:
+    name: nginx-proxy
+    external: true

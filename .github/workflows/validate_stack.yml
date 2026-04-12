@@ -24,3 +24,25 @@ jobs:
 
       - name: Start Mosquitto and RabbitMQ
         uses: ./.github/actions/deploy_local
+
+      - name: EventMgr compose diagnostics on failure
+        if: failure()
+        run: |
+          set -x
+          d="ci/stacks/userver-eventmgr"
+          if [ -d "$d" ]; then
+            cd "$d" || exit 0
+            echo "::group::docker compose ps -a"
+            docker compose ps -a || true
+            echo "::endgroup::"
+            echo "::group::docker compose logs (tail 400)"
+            docker compose logs --tail=400 || true
+            echo "::endgroup::"
+          fi
+          for c in userver-mosquitto userver-rabbitmq; do
+            if docker inspect "$c" >/dev/null 2>&1; then
+              echo "::group::docker logs $c"
+              docker logs --tail=250 "$c" || true
+              echo "::endgroup::"
+            fi
+          done

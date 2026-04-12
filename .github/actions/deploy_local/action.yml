@@ -31,19 +31,48 @@ runs:
       run: |
         set -euo pipefail
         cd "${ROOT_WORK_DIR}"
-        docker compose up --build --remove-orphans --detach --wait --wait-timeout 120
+        dump_compose_diagnostics() {
+          echo "::group::docker compose ps -a"
+          docker compose ps -a || true
+          echo "::endgroup::"
+          echo "::group::docker compose logs (tail 500, all services)"
+          docker compose logs --tail=500 2>&1 || true
+          echo "::endgroup::"
+          for c in userver-mosquitto userver-rabbitmq; do
+            if docker inspect "$c" >/dev/null 2>&1; then
+              echo "::group::docker inspect (state + health): ${c}"
+              docker inspect --format '{{json .State}}' "$c" 2>/dev/null | head -c 8000 || true
+              echo ""
+              echo "::endgroup::"
+            fi
+          done
+        }
+        if ! docker compose up --build --remove-orphans --detach --wait --wait-timeout 120; then
+          echo "docker compose up --wait failed; dumping diagnostics."
+          dump_compose_diagnostics
+          exit 1
+        fi
         docker compose ps
       shell: bash
 
     - name: Smoke checks
       run: |
         set -euo pipefail
+        on_fail() {
+          echo "::group::smoke-check failure: rabbitmq + mosquitto logs"
+          docker logs --tail=200 userver-rabbitmq 2>&1 || true
+          docker logs --tail=200 userver-mosquitto 2>&1 || true
+          echo "::endgroup::"
+          exit 1
+        }
+        trap on_fail ERR
         docker exec userver-rabbitmq rabbitmq-diagnostics -q ping
         docker exec userver-mosquitto sh -c 'nc -z 127.0.0.1 1883 && nc -z 127.0.0.1 9001'
         code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 http://127.0.0.1:15672/ || echo "000")
         case "$code" in 200|302|401) echo "RabbitMQ management UI HTTP status: $code" ;; *)
           echo "Unexpected HTTP status from management UI: $code"
-          exit 1
+          on_fail
           ;;
         esac
+        trap - ERR
       shell: bash

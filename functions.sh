@@ -7,8 +7,7 @@ fi
 
 function stop_and_remove_container {
     container_name=$1
-    # Docker's name= filter matches substrings, so "userver-filemgr" also matches
-    # "userver-filemgr-qcluster". Resolve by exact .Names match.
+    # Docker's name= filter matches substrings; resolve by exact .Names match.
     container_id=""
     local line cid cname
     while IFS= read -r line; do
@@ -100,6 +99,87 @@ function print_title {
     echo "--------------------------------"
 }
 
+# Bundled stacks (userver-auth, userver-filemgr) ship compose + .env.template in the orchestration repo.
+# If the directory is missing or incomplete (old clone, tarball without subdirs), fetch from GitHub raw.
+# USERVER_ORCHESTRATION_GITHUB_REPO (default ferdn4ndo/userver), USERVER_BUNDLED_STACK_REF (default main).
+function ensure_bundled_stack_from_repo {
+    local dir="${1:?stack directory e.g. userver-auth}"
+    shift
+    if [ "$#" -eq 0 ]; then
+        echo "ensure_bundled_stack_from_repo: no file names passed." >&2
+        return 1
+    fi
+    local ref="${USERVER_BUNDLED_STACK_REF:-main}"
+    local repo="${USERVER_ORCHESTRATION_GITHUB_REPO:-ferdn4ndo/userver}"
+    local base="https://raw.githubusercontent.com/${repo}/${ref}/${dir}"
+    local need_fetch=0
+    local f
+    for f in "$@"; do
+        if [ ! -f "${dir}/${f}" ]; then
+            need_fetch=1
+            break
+        fi
+    done
+    if [ "${need_fetch}" = 0 ]; then
+        return 0
+    fi
+
+    echo "Bundled files missing under ${dir}/; fetching from ${base}/" >&2
+    echo "  (override repo/branch: USERVER_ORCHESTRATION_GITHUB_REPO, USERVER_BUNDLED_STACK_REF; or git pull this repo)." >&2
+    mkdir -p "${dir}"
+
+    _bundled_fetch() {
+        local url="$1"
+        local out="$2"
+        if command -v curl >/dev/null 2>&1; then
+            curl -fsSL "${url}" -o "${out}"
+        elif command -v wget >/dev/null 2>&1; then
+            wget -q -O "${out}" "${url}"
+        else
+            echo "Install curl or wget, or copy ${dir}/ from a full orchestration checkout." >&2
+            return 1
+        fi
+    }
+
+    for f in "$@"; do
+        echo "  -> ${dir}/${f}" >&2
+        _bundled_fetch "${base}/${f}" "${dir}/${f}" || return 1
+    done
+    return 0
+}
+
+# Inspect + healthcheck log + container logs (for deploy scripts and CI when a container is unhealthy / crashing).
+# Optional $2: log tail (default 200).
+function docker_print_container_diagnostics {
+    local cname="${1:?container name}"
+    local log_tail="${2:-200}"
+    echo "" >&2
+    echo "========== docker diagnostics: ${cname} ==========" >&2
+    if ! docker inspect "${cname}" >/dev/null 2>&1; then
+        echo "No container named '${cname}'. Recent docker ps -a (name / status / image):" >&2
+        docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null | head -50 >&2 || true
+        echo "========== end diagnostics ==========" >&2
+        return 0
+    fi
+    docker inspect --format 'Image={{.Config.Image}}
+Status={{.State.Status}} ExitCode={{.State.ExitCode}} OOMKilled={{.State.OOMKilled}}
+StartedAt={{.State.StartedAt}} FinishedAt={{.State.FinishedAt}}
+Error={{.State.Error}}' "${cname}" 2>/dev/null | sed 's/^/  /' >&2 || true
+    local hstat fstreak
+    hstat="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}(no healthcheck in image){{end}}' "${cname}" 2>/dev/null || echo '?')"
+    fstreak="$(docker inspect --format '{{if .State.Health}}{{.State.Health.FailingStreak}}{{else}}n/a{{end}}' "${cname}" 2>/dev/null || echo '?')"
+    echo "  Health.Status=${hstat}  FailingStreak=${fstreak}" >&2
+    local log_count
+    log_count="$(docker inspect --format '{{if .State.Health}}{{len .State.Health.Log}}{{else}}0{{end}}' "${cname}" 2>/dev/null || echo 0)"
+    if [ -n "${log_count}" ] && [ "${log_count}" -gt 0 ] 2>/dev/null; then
+        echo "  --- Healthcheck log (command output from last checks) ---" >&2
+        docker inspect --format '{{range .State.Health.Log}}--- exit={{.ExitCode}} start={{.Start}} ---{{println}}{{.Output}}{{end}}' "${cname}" 2>/dev/null | tail -n 80 | sed 's/^/  /' >&2 || true
+    fi
+    echo "  --- docker logs (last ${log_tail} lines) ---" >&2
+    docker logs --tail="${log_tail}" "${cname}" 2>&1 | sed 's/^/  /' >&2 || true
+    echo "========== end diagnostics ==========" >&2
+}
+
 # Used before docker exec into Postgres from deploy scripts (e.g. mailer after datamgr).
 # Uses POSTGRES_USER inside the container (same as the DB image init), not USERVER_DB_USER —
 # those often differ and pg_isready -U wrong_user never succeeds (looks like a hang for up to max seconds).
@@ -121,6 +201,7 @@ function wait_for_postgresql_container {
         i=$((i + 1))
     done
     echo "Postgres container '${cname}' not ready after ${max}s (pg_isready)." >&2
+    docker_print_container_diagnostics "${cname}" 180
     return 1
 }
 
@@ -260,16 +341,17 @@ function wait_for_container_stable {
     state="$(docker inspect --format='{{.State.Status}}' "${cname}" 2>/dev/null || true)"
     if [ -z "${state}" ]; then
         echo "Container '${cname}' not found after wait." >&2
+        docker_print_container_diagnostics "${cname}" 120
         return 1
     fi
     if [ "${state}" = "restarting" ]; then
-        echo "Container '${cname}' is restarting (crash loop). Recent logs:" >&2
-        docker logs --tail=80 "${cname}" 1>&2 || true
+        echo "Container '${cname}' is restarting (crash loop)." >&2
+        docker_print_container_diagnostics "${cname}" 200
         return 1
     fi
     if [ "${state}" != "running" ]; then
-        echo "Container '${cname}' state is '${state}' (expected running). Recent logs:" >&2
-        docker logs --tail=80 "${cname}" 1>&2 || true
+        echo "Container '${cname}' state is '${state}' (expected running)." >&2
+        docker_print_container_diagnostics "${cname}" 200
         return 1
     fi
 
@@ -278,14 +360,14 @@ function wait_for_container_stable {
     sleep "${settle_sec}"
     state="$(docker inspect --format='{{.State.Status}}' "${cname}" 2>/dev/null || true)"
     if [ "${state}" != "running" ]; then
-        echo "Container '${cname}' left running state (now '${state:-missing}'). Recent logs:" >&2
-        docker logs --tail=80 "${cname}" 1>&2 || true
+        echo "Container '${cname}' left running state (now '${state:-missing}')." >&2
+        docker_print_container_diagnostics "${cname}" 200
         return 1
     fi
     c2="$(docker inspect --format='{{.RestartCount}}' "${cname}" 2>/dev/null)"
     if [ "${c1}" != "${c2}" ]; then
-        echo "Container '${cname}' restart count changed (${c1} -> ${c2}); likely crash loop. Recent logs:" >&2
-        docker logs --tail=80 "${cname}" 1>&2 || true
+        echo "Container '${cname}' restart count changed (${c1} -> ${c2}); likely crash loop." >&2
+        docker_print_container_diagnostics "${cname}" 200
         return 1
     fi
 
@@ -312,19 +394,19 @@ function wait_for_container_healthy {
         case "${state}" in
             exited|dead)
                 exitcode="$(docker inspect --format='{{.State.ExitCode}}' "${cname}" 2>/dev/null || echo "?")"
-                echo "Container '${cname}' ${state} (ExitCode=${exitcode}) before healthcheck passed. Recent logs:" >&2
-                docker logs --tail=120 "${cname}" 1>&2 || true
+                echo "Container '${cname}' ${state} (ExitCode=${exitcode}) before healthcheck passed." >&2
+                docker_print_container_diagnostics "${cname}" 200
                 return 1
                 ;;
             restarting)
                 if [ "${i}" -ge 25 ]; then
-                    echo "Container '${cname}' still restarting after ~$((i * delay))s; giving up. Recent logs:" >&2
-                    docker logs --tail=120 "${cname}" 1>&2 || true
+                    echo "Container '${cname}' still restarting after ~$((i * delay))s; giving up." >&2
+                    docker_print_container_diagnostics "${cname}" 200
                     return 1
                 fi
-                if [ "$((i % 5))" -eq 1 ]; then
-                    echo "Container '${cname}' is restarting (${i}/${attempts}); recent logs:" >&2
-                    docker logs --tail=50 "${cname}" 1>&2 || true
+                if [ "$((i % 10))" -eq 1 ]; then
+                    echo "Container '${cname}' is restarting (${i}/${attempts}); snippet:" >&2
+                    docker_print_container_diagnostics "${cname}" 80
                 fi
                 ;;
         esac
@@ -337,11 +419,14 @@ function wait_for_container_healthy {
                     return 0
                     ;;
                 unhealthy)
-                    echo "Container '${cname}' is running but healthcheck=unhealthy. Recent logs:" >&2
-                    docker logs --tail=120 "${cname}" 1>&2 || true
+                    echo "Container '${cname}' is running but healthcheck=unhealthy." >&2
+                    docker_print_container_diagnostics "${cname}" 250
                     return 1
                     ;;
             esac
+            if [ "$((i % 15))" -eq 0 ] || [ "${i}" -eq 1 ]; then
+                echo "  ... waiting for healthy (${i}/${attempts}) status=${state} health=${health}" >&2
+            fi
         fi
 
         sleep "${delay}"
@@ -351,7 +436,7 @@ function wait_for_container_healthy {
     state="$(docker inspect --format='{{.State.Status}}' "${cname}" 2>/dev/null || true)"
     health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "${cname}" 2>/dev/null || true)"
     echo "Last observed: Status=${state:-?} Health=${health:-?}" >&2
-    docker logs --tail=120 "${cname}" 1>&2 || true
+    docker_print_container_diagnostics "${cname}" 250
     return 1
 }
 
@@ -365,10 +450,15 @@ function wait_for_container_to_exist {
         if docker inspect "${cname}" >/dev/null 2>&1; then
             return 0
         fi
+        if [ "$((i % 20))" -eq 0 ] && [ "${i}" -gt 0 ]; then
+            echo "  ... still no container '${cname}' (${i}s / ${max_sec}s)" >&2
+        fi
         sleep 1
         i=$((i + 1))
     done
     echo "Container '${cname}' did not appear within ${max_sec}s." >&2
+    echo "docker ps -a (names containing partial match):" >&2
+    docker ps -a --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -F "${cname}" >&2 || docker ps -a --format 'table {{.Names}}\t{{.Status}}' 2>/dev/null | head -25 >&2 || true
     return 1
 }
 

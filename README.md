@@ -14,7 +14,7 @@ Architecture overview: [`docs/userver_main_diagram.drawio`](docs/userver_main_di
 4. **[userver-eventmgr](https://github.com/ferdn4ndo/userver-eventmgr)** — **Mosquitto (MQTT)** and **RabbitMQ** on the shared `nginx-proxy` network (cloned into `userver-eventmgr/`).
 5. **[userver-mailer](https://github.com/ferdn4ndo/userver-mailer)** — SMTP/IMAP/POP, backups, webmail. **`deploy_userver_mailer.sh`** writes **`userver-mailer/.env`** with **`MAIL_FQDN=${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}`** (Compose **`hostname:`**, Let’s Encrypt paths) and sets **`OVERRIDE_HOSTNAME`** in **`mail/.env`** to the same FQDN for docker-mailserver. PostfixAdmin **`custom-entrypoint.sh`** / **`setup.sh`** live upstream under **`postfixadmin/`**; **`patches/userver-mailer/postfixadmin/`** is only a fallback for old clones missing them.
 6. **[userver-auth](https://github.com/ferdn4ndo/userver-auth)** — JWT auth API (**Docker Hub** `ferdn4ndo/userver-auth`). This repo ships **`userver-auth/docker-compose.yml`** + **`.env.template`**; deploy writes **`.env`** and **`docker compose pull`** + **`up`** (no git clone of the app repo).
-7. **[userver-filemgr](https://github.com/ferdn4ndo/userver-filemgr)** — Django REST file manager (**Docker Hub** `ferdn4ndo/userver-filemgr`). Same pattern under **`userver-filemgr/`** with bind mounts for **`logs/`**, **`tmp/`**, **`local/`**.
+7. **[userver-filemgr](https://github.com/ferdn4ndo/userver-filemgr)** — Go file manager (**Docker Hub** `ferdn4ndo/userver-filemgr`). Same pattern under **`userver-filemgr/`** as auth (Hub image + `MIGRATE_BIN` / `APP_BIN`), with a bind mount for **`local/`** (local storage root).
 
 Other `userver-*` directories are **gitignored** plain clones of their upstream repos. **`./run.sh`** clones or **updates** those (default branch: `origin/HEAD`, else `main` / `master`). To refresh those clones without a full orchestration run, use **`./scripts/update_nested_services.sh`**. On servers where Docker left root-owned files or you have accidental local edits in a clone, use **`./scripts/update_nested_services.sh --chown --reset-hard`** (see **`docs/MIGRATION.md`**).
 
@@ -30,8 +30,9 @@ See **[docs/MIGRATION.md](docs/MIGRATION.md)** for bind mounts, Postgres, switch
 ## Local setup
 
 1. Copy `.env.template` to `.env` and set at least `USERVER_VIRTUAL_HOST`, secrets, and database credentials.
-2. For **EventMgr**, set `USERVER_EVENTMGR_*` variables (see `.env.template`). If `USERVER_EVENTMGR_MQTT_USER` / `USERVER_EVENTMGR_MQTT_PASS` are empty, a **dev-only** MQTT user `localdev=localdev` is appended; set real credentials for production.
-3. Run:
+2. **DataMgr / Postgres TLS:** in **dev**, ensure **openssl** is installed so the deploy script can generate self-signed certs under **`userver-datamgr/postgres/ssl/`**, or generate them manually with **`./postgres/generate-ssl.sh`** inside the clone. In **prod**, **`userver-web`** runs before DataMgr so **acme-companion** can populate **`userver-web/certs`** for Postgres.
+3. For **EventMgr**, set `USERVER_EVENTMGR_*` variables (see `.env.template`). If `USERVER_EVENTMGR_MQTT_USER` / `USERVER_EVENTMGR_MQTT_PASS` are empty, a **dev-only** MQTT user `localdev=localdev` is appended; set real credentials for production.
+4. Run:
 
    ```bash
    ./run.sh
@@ -39,13 +40,13 @@ See **[docs/MIGRATION.md](docs/MIGRATION.md)** for bind mounts, Postgres, switch
 
    Wait until `=========  SETUP FINISHED! =========`.
 
-4. Stop the stack:
+5. Stop the stack:
 
    ```bash
    ./stop.sh
    ```
 
-5. Remove containers, volumes, and cloned service directories (destructive):
+6. Remove containers, volumes, and cloned service directories (destructive):
 
    ```bash
    ./remove.sh
