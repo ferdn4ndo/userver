@@ -3,6 +3,19 @@
 # Common functions
 . ./functions.sh --source-only
 
+# Compose-time vars in userver-datamgr/.env (ssl cert basename + bind mount to userver-web/certs).
+datamgr_compose_env_upsert() {
+    local f="userver-datamgr/.env"
+    local key="$1"
+    local val="$2"
+    [ -f "$f" ] || touch "$f"
+    if grep -q "^${key}=" "$f" 2>/dev/null; then
+        sed -i "s|^${key}=.*|${key}=${val}|" "$f"
+    else
+        printf '%s=%s\n' "$key" "$val" >> "$f"
+    fi
+}
+
 print_title "Deploying userver-datamgr..."
 
 # Skip functionality
@@ -71,5 +84,19 @@ if [ -f "${_adminer_env}" ]; then
     fi
 fi
 
+# Postgres TLS: HTTP-01 helper (whoami) + acme-companion (userver-web) issues certs; Postgres reads same files.
+if [ -d userver-datamgr ]; then
+    cp userver-datamgr/postgres/certs-helper.env.template userver-datamgr/postgres/certs-helper.env
+    prepare_virtual_host userver-datamgr/postgres/certs-helper.env "${USERVER_DB_POSTGRES_TLS_HOSTNAME:-postgres}"
+fi
+
+if [ "${USERVER_MODE}" = "prod" ] && [ -n "${USERVER_VIRTUAL_HOST:-}" ]; then
+    datamgr_compose_env_upsert POSTGRES_SSL_CERT_BASENAME "${USERVER_DB_POSTGRES_TLS_HOSTNAME:-postgres}.${USERVER_VIRTUAL_HOST}"
+    datamgr_compose_env_upsert USERVER_WEB_CERTS_DIR "../userver-web/certs"
+else
+    datamgr_compose_env_upsert POSTGRES_SSL_CERT_BASENAME ""
+    datamgr_compose_env_upsert USERVER_WEB_CERTS_DIR "./postgres/.nginx-certs-stub"
+fi
+
 start_service userver-datamgr "$build" || exit 1
-wait_for_containers_stable 10 userver-postgres userver-redis userver-adminer userver-databackup || exit 1
+wait_for_containers_stable 10 userver-postgres userver-postgres-acme userver-redis userver-adminer userver-databackup || exit 1
