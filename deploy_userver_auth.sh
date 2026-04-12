@@ -34,6 +34,8 @@ if [ "$USERVER_SKIP_DEPLOY_AUTH" = "true" ]; then
     exit 0
 fi
 
+ensure_bundled_stack_from_repo userver-auth docker-compose.yml .env.template || exit 1
+
 if [ -f userver-auth/.env ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "userver-auth/.env exists and USERVER_FORCE_BUILD is not true: restarting without env rewrite (Docker Hub image, compose does not --build)"
     sanitize_userver_auth_env_file

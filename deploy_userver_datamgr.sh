@@ -24,10 +24,43 @@ if [ "$USERVER_SKIP_DEPLOY_DATAMGR" = "true" ]; then
     exit 0
 fi
 
+# Upstream postgres/docker-ensure-tls.sh requires TLS (Let's Encrypt in prod or self-signed in dev).
+ensure_datamgr_postgres_tls_material() {
+    local ssl_dir="userver-datamgr/postgres/ssl"
+    [ -d "${ssl_dir}" ] || return 0
+    if [ -f "${ssl_dir}/server.crt" ] && [ -f "${ssl_dir}/server.key" ]; then
+        return 0
+    fi
+    if [ "${USERVER_MODE}" = "prod" ] && [ -n "${USERVER_VIRTUAL_HOST:-}" ]; then
+        echo "Postgres TLS: using Let's Encrypt certs from userver-web (container waits if ACME is still issuing)."
+        return 0
+    fi
+    if command -v openssl >/dev/null 2>&1; then
+        echo "Generating self-signed Postgres TLS for dev (userver-datamgr/postgres/generate-ssl.sh)..."
+        ( cd userver-datamgr/postgres && sh ./generate-ssl.sh ) || exit 1
+    else
+        echo "Missing ${ssl_dir}/server.crt and server.key; install openssl or run userver-datamgr/postgres/generate-ssl.sh manually." >&2
+        exit 1
+    fi
+}
+
+datamgr_compose_down() {
+    if [ -f userver-datamgr/docker-compose.yml ]; then
+        (
+            cd userver-datamgr || exit 0
+            if docker compose version >/dev/null 2>&1; then
+                docker compose down --remove-orphans
+            else
+                docker-compose down --remove-orphans
+            fi
+        ) 2>/dev/null || true
+    fi
+}
+
 build=
 if [ ! -d userver-datamgr ] || [ "$USERVER_FORCE_BUILD" = "true" ]; then
     build=1
-    stop_and_remove_container userver-datamgr
+    datamgr_compose_down
     clone_repo userver-datamgr
 
     envs=(
@@ -86,6 +119,7 @@ fi
 
 # Postgres TLS: HTTP-01 helper (whoami) + acme-companion (userver-web) issues certs; Postgres reads same files.
 if [ -d userver-datamgr ]; then
+    ensure_datamgr_postgres_tls_material
     cp userver-datamgr/postgres/certs-helper.env.template userver-datamgr/postgres/certs-helper.env
     prepare_virtual_host userver-datamgr/postgres/certs-helper.env "${USERVER_DB_POSTGRES_TLS_HOSTNAME:-postgres}"
 fi

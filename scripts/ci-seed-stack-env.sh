@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Copy every **/.env.template under STACK_ROOT to sibling .env (Compose env_file paths).
+# userver-datamgr: copy postgres/certs-helper.env.template → certs-helper.env (compose env_file).
 # userver-eventmgr: append a CI MQTT user so Mosquitto pwfile bootstrap succeeds.
 set -euo pipefail
 STACK_ROOT="${1:?Usage: $0 <path-to-cloned-stack>}"
@@ -33,6 +34,15 @@ if [ "$(basename "${STACK_ROOT}")" = "userver-eventmgr" ]; then
         "${STACK_ROOT}/mosquitto/config" \
         "${STACK_ROOT}/rabbitmq/data" \
         "${STACK_ROOT}/rabbitmq/conf.d" 2>/dev/null || true
+fi
+
+# Postgres TLS helper (whoami): compose env_file is certs-helper.env, not *.env.template.
+if [ "$(basename "${STACK_ROOT}")" = "userver-datamgr" ]; then
+    ch_tmpl="${STACK_ROOT}/postgres/certs-helper.env.template"
+    ch="${STACK_ROOT}/postgres/certs-helper.env"
+    if [ -f "${ch_tmpl}" ]; then
+        cp "${ch_tmpl}" "${ch}"
+    fi
 fi
 
 # No root .env.template — compose still substitutes MAIL_FQDN for the mail container hostname.
