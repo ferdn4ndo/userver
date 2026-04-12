@@ -10,7 +10,7 @@ Architecture overview: [`docs/userver_main_diagram.drawio`](docs/userver_main_di
 
 1. **[userver-web](https://github.com/ferdn4ndo/userver-web)** — HTTP/HTTPS edge: `nginx-proxy`, Let’s Encrypt companion, Netdata-style monitoring.
 2. **[userver-logger](https://github.com/ferdn4ndo/userver-logger)** — Loki / Grafana / Promtail (or equivalent) for logs and metrics.
-3. **[userver-datamgr](https://github.com/ferdn4ndo/userver-datamgr)** — PostgreSQL, Redis, Adminer, DB backups.
+3. **[userver-datamgr](https://github.com/ferdn4ndo/userver-datamgr)** — PostgreSQL (TLS via the same **userver-web** Let’s Encrypt certs as nginx-proxy, plus a small **whoami** service for HTTP-01 on the DB hostname), Redis, Adminer, DB backups.
 4. **[userver-eventmgr](https://github.com/ferdn4ndo/userver-eventmgr)** — **Mosquitto (MQTT)** and **RabbitMQ** on the shared `nginx-proxy` network (cloned into `userver-eventmgr/`).
 5. **[userver-mailer](https://github.com/ferdn4ndo/userver-mailer)** — SMTP/IMAP/POP, backups, webmail. **`deploy_userver_mailer.sh`** writes **`userver-mailer/.env`** with **`MAIL_FQDN=${USERVER_MAIL_HOSTNAME}.${USERVER_VIRTUAL_HOST}`** (Compose **`hostname:`**, Let’s Encrypt paths) and sets **`OVERRIDE_HOSTNAME`** in **`mail/.env`** to the same FQDN for docker-mailserver. PostfixAdmin **`custom-entrypoint.sh`** / **`setup.sh`** live upstream under **`postfixadmin/`**; **`patches/userver-mailer/postfixadmin/`** is only a fallback for old clones missing them.
 6. **[userver-auth](https://github.com/ferdn4ndo/userver-auth)** — JWT auth API (**Docker Hub** `ferdn4ndo/userver-auth`). This repo ships **`userver-auth/docker-compose.yml`** + **`.env.template`**; deploy writes **`.env`** and **`docker compose pull`** + **`up`** (no git clone of the app repo).

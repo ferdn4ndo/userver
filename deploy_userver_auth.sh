@@ -10,6 +10,20 @@ sanitize_userver_auth_env_file() {
     sed -i '/^MIGRATE_BIN=/d;/^APP_BIN=/d' "${ef}"
 }
 
+# userver-auth uses sslmode=require when ENV_MODE=prod (see upstream lib/db.go). With userver-datamgr + userver-web ACME, Docker Postgres serves TLS in prod — use ENV_MODE=prod there.
+sync_userver_auth_env_from_orchestration() {
+    local ef="userver-auth/.env"
+    [ -f "${ef}" ] || return 0
+    local mode="${USERVER_AUTH_ENV_MODE:-dev}"
+    local cost="${USERVER_AUTH_BCRYPT_COST:-13}"
+    sed -i "s|^ENV_MODE=.*|ENV_MODE=${mode}|" "${ef}"
+    if grep -q '^BCRYPT_COST=' "${ef}" 2>/dev/null; then
+        sed -i "s|^BCRYPT_COST=.*|BCRYPT_COST=${cost}|" "${ef}"
+    else
+        sed -i "/^ENV_MODE=.*/a BCRYPT_COST=${cost}" "${ef}"
+    fi
+}
+
 print_title "Deploying userver-auth..."
 
 export USERVER_AUTH_IMAGE_TAG="${USERVER_AUTH_IMAGE_TAG:-latest}"
@@ -23,6 +37,7 @@ fi
 if [ -f userver-auth/.env ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "userver-auth/.env exists and USERVER_FORCE_BUILD is not true: restarting without env rewrite (Docker Hub image, compose does not --build)"
     sanitize_userver_auth_env_file
+    sync_userver_auth_env_from_orchestration
     if [ -f userver-auth/docker-compose.override.yml ]; then
         echo "Warning: userver-auth/docker-compose.override.yml exists — it may bind-mount over /app and break the Hub image. Use only docker-compose.yml for registry deploy (rename/remove the override)." >&2
     fi
@@ -33,6 +48,9 @@ fi
 
 stop_and_remove_container userver-auth
 
+USERVER_AUTH_ENV_MODE="${USERVER_AUTH_ENV_MODE:-dev}"
+USERVER_AUTH_BCRYPT_COST="${USERVER_AUTH_BCRYPT_COST:-13}"
+
 envs=(
     "s|^POSTGRES_HOST=.*|POSTGRES_HOST=${USERVER_AUTH_DB_HOST}|g"
     "s|^POSTGRES_DB=.*|POSTGRES_DB=${USERVER_AUTH_DB}|g"
@@ -40,7 +58,8 @@ envs=(
     "s|^POSTGRES_USER=.*|POSTGRES_USER=${USERVER_AUTH_USER}|g"
     "s|^POSTGRES_PASS=.*|POSTGRES_PASS=${USERVER_AUTH_PASS}|g"
     #"s/POSTGRES_PORT=5432/POSTGRES_PORT=5432/g"
-    "s|^ENV_MODE=.*|ENV_MODE=${USERVER_MODE}|g"
+    "s|^ENV_MODE=.*|ENV_MODE=${USERVER_AUTH_ENV_MODE}|g"
+    "s|^BCRYPT_COST=.*|BCRYPT_COST=${USERVER_AUTH_BCRYPT_COST}|g"
     #"s/APP_PORT=5000/APP_PORT=5000/g"
     "s|^APP_SECRET_KEY=.*|APP_SECRET_KEY=${USERVER_AUTH_SECRET_KEY}|g"
     "s|^SYSTEM_CREATION_TOKEN=.*|SYSTEM_CREATION_TOKEN=${USERVER_AUTH_SYSTEM_CREATION_TOKEN}|g"
