@@ -11,7 +11,7 @@ if [ "$USERVER_SKIP_DEPLOY_FILEMGR" = "true" ]; then
     exit 0
 fi
 
-FM_ROOT="userver-filemgr/filemgr"
+FM_ROOT="userver-filemgr"
 
 export USERVER_FILEMGR_IMAGE_TAG="${USERVER_FILEMGR_IMAGE_TAG:-latest}"
 
@@ -42,7 +42,10 @@ if [ -f "${FM_ROOT}/.env" ] && [ "$USERVER_FORCE_BUILD" != "true" ]; then
     echo "${FM_ROOT}/.env exists and USERVER_FORCE_BUILD is not true: restarting without full env rewrite (Docker Hub image, compose does not --build)"
     mkdir -p userver-filemgr/logs userver-filemgr/tmp userver-filemgr/local
     sync_filemgr_auth_env_from_orchestration
-    start_service userver-filemgr 0 || exit 1
+    if [ -f userver-filemgr/docker-compose.override.yml ]; then
+        echo "Warning: userver-filemgr/docker-compose.override.yml exists — it may bind-mount source over /code. For Docker Hub, use only docker-compose.yml (rename/remove the override)." >&2
+    fi
+    start_service userver-filemgr 0 "" docker-compose.yml || exit 1
     echo "Waiting for userver-filemgr healthcheck; then checking qcluster stability..."
     wait_for_container_healthy userver-filemgr 90 2 || {
         filemgr_troubleshooting
@@ -92,9 +95,13 @@ cp "${FM_ROOT}/.env.template" "${FM_ROOT}/.env"
 prepare_virtual_host "${FM_ROOT}/.env" "${USERVER_FILEMGR_HOSTNAME}"
 sed_replace_occurrences "${FM_ROOT}/.env" "${envs[@]}"
 
-# Docker Hub: ferdn4ndo/userver-filemgr (tag from USERVER_FILEMGR_IMAGE_TAG or compose default latest).
-compose_pull_stack userver-filemgr || exit 1
-start_service userver-filemgr 0 || {
+if [ -f userver-filemgr/docker-compose.override.yml ]; then
+    echo "Warning: userver-filemgr/docker-compose.override.yml exists — it may bind-mount source over /code. For Docker Hub, use only docker-compose.yml (rename/remove the override)." >&2
+fi
+
+# Docker Hub: ferdn4ndo/userver-filemgr (explicit -f avoids merging override).
+compose_pull_stack userver-filemgr docker-compose.yml || exit 1
+start_service userver-filemgr 0 "" docker-compose.yml || {
     echo "userver-filemgr: docker compose up failed." >&2
     exit 1
 }

@@ -189,8 +189,11 @@ function ensure_mailer_stack_mail_fqdn {
 }
 
 # Pull service images from the registry (no build). Honors USERVER_COMPOSE_PULL (default: pull).
+# Optional $2: compose file name (default docker-compose.yml). Use a single explicit file to avoid
+# merging docker-compose.override.yml (e.g. old dev bind-mounts over /app or /code).
 function compose_pull_stack {
     local service_dir="${1:?service directory}"
+    local compose_file="${2:-docker-compose.yml}"
     case "${USERVER_COMPOSE_PULL:-true}" in
         1 | true | yes) ;;
         *) return 0 ;;
@@ -199,9 +202,9 @@ function compose_pull_stack {
     (
         cd "${service_dir}" || exit 1
         if docker compose version >/dev/null 2>&1; then
-            docker compose pull
+            docker compose -f "${compose_file}" pull
         else
-            docker-compose pull
+            docker-compose -f "${compose_file}" pull
         fi
     ) || return 1
 }
@@ -213,6 +216,8 @@ function start_service {
     build=$2
     # $3 = optional extra args for "docker compose up" (e.g. --force-recreate so entrypoint/setup.sh runs again)
     compose_extra="${3-}"
+    # $4 = optional compose file (e.g. docker-compose.yml) — when set, only this file is used (no override merge)
+    compose_file="${4-}"
 
     build_arg=
     action="Restarting"
@@ -224,12 +229,16 @@ function start_service {
     echo "${action} ${service}..."
     cd "${service}" || exit 1
     local _compose_rc=0
+    local _compose_file_args=()
+    if [ -n "${compose_file}" ]; then
+        _compose_file_args=( -f "${compose_file}" )
+    fi
     if docker compose version >/dev/null 2>&1; then
         # shellcheck disable=SC2086
-        docker compose up ${build_arg} ${compose_extra} -d || _compose_rc=$?
+        docker compose "${_compose_file_args[@]}" up ${build_arg} ${compose_extra} -d || _compose_rc=$?
     else
         # shellcheck disable=SC2086
-        docker-compose up ${build_arg} ${compose_extra} -d || _compose_rc=$?
+        docker-compose "${_compose_file_args[@]}" up ${build_arg} ${compose_extra} -d || _compose_rc=$?
     fi
     cd .. || return 1
     return "${_compose_rc}"
