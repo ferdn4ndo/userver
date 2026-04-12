@@ -31,7 +31,7 @@ See **[docs/MIGRATION.md](docs/MIGRATION.md)** for bind mounts, Postgres, switch
 
 1. Copy `.env.template` to `.env` and set at least `USERVER_VIRTUAL_HOST`, secrets, and database credentials.
 2. **DataMgr / Postgres TLS:** in **dev**, ensure **openssl** is installed so the deploy script can generate self-signed certs under **`userver-datamgr/postgres/ssl/`**, or generate them manually with **`./postgres/generate-ssl.sh`** inside the clone. In **prod**, **`userver-web`** runs before DataMgr so **acme-companion** can populate **`userver-web/certs`** for Postgres.
-3. For **EventMgr**, set `USERVER_EVENTMGR_*` variables (see `.env.template`). If `USERVER_EVENTMGR_MQTT_USER` / `USERVER_EVENTMGR_MQTT_PASS` are empty, a **dev-only** MQTT user `localdev=localdev` is appended; set real credentials for production.
+3. For **EventMgr**, set `USERVER_EVENTMGR_*` variables (see `.env.template`). If `USERVER_EVENTMGR_MQTT_USER` / `USERVER_EVENTMGR_MQTT_PASS` are empty, a **dev-only** MQTT user `localdev=localdev` is appended; set real credentials for production. For public **`wss://mqtt.example.com/`** when **`USERVER_VIRTUAL_HOST`** is not that FQDN, set **`USERVER_EVENTMGR_MQTT_WSS_HOST`** so nginx-proxy and Let’s Encrypt register the MQTT hostname (see **docs/MIGRATION.md**).
 4. Run:
 
    ```bash
