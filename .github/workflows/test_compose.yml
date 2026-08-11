@@ -23,7 +23,7 @@ jobs:
           - userver-auth
           - userver-filemgr
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Prepare ${{ matrix.stack }} (clone or bundled copy)
         run: ./scripts/ci-clone-one-stack.sh "${{ matrix.stack }}"
